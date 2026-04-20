@@ -1,6 +1,6 @@
 import type { PromptItem, PromptCategory } from '@/types/v3';
 
-const SUFFIX = ' 각 치과마다 선정 이유와 장점 하나씩만 간단히 써주세요.';
+const SUFFIX = ' 추천하는 치과 이름만 나열해줘.';
 
 /** Legacy: used by old search API */
 export function generatePrompts(region: string, treatment: string): string[] {

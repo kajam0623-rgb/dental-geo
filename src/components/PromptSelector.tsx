@@ -11,7 +11,7 @@ const CATEGORY_COLORS: Record<PromptCategory, string> = {
   '추천형': 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
 };
 
-const COUNT_OPTIONS: Array<5 | 10 | 20> = [5, 10, 20];
+const COUNT_OPTIONS: Array<3 | 5 | 10 | 20> = [3, 5, 10, 20];
 
 interface PromptSelectorProps {
   prompts: PromptItem[];
@@ -22,20 +22,20 @@ interface PromptSelectorProps {
 export default function PromptSelector({ prompts, onStart, isLoading = false }: PromptSelectorProps) {
   const [items, setItems] = useState<PromptItem[]>(prompts);
   const [selected, setSelected] = useState<Set<string>>(
-    new Set(prompts.slice(0, 10).map(p => p.id))
+    new Set(prompts.slice(0, 5).map(p => p.id))
   );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [newPrompt, setNewPrompt] = useState('');
-  const [chatgptCount, setChatgptCount] = useState<5 | 10 | 20>(10);
-  const [geminiCount, setGeminiCount] = useState<5 | 10 | 20>(10);
+  const [chatgptCount, setChatgptCount] = useState<3 | 5 | 10 | 20>(5);
+  const [geminiCount, setGeminiCount] = useState<3 | 5 | 10 | 20>(5);
 
   const toggle = (id: string) => {
     setSelected(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
-      } else if (next.size < 10) {
+      } else if (next.size < 5) {
         next.add(id);
       }
       return next;
@@ -62,7 +62,7 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
     if (!text || items.length >= 20) return;
     const newItem: PromptItem = { id: `custom-${Date.now()}`, text, displayText: text, category: '추천형' };
     setItems(prev => [...prev, newItem]);
-    if (selected.size < 10) setSelected(prev => new Set([...prev, newItem.id]));
+    if (selected.size < 5) setSelected(prev => new Set([...prev, newItem.id]));
     setNewPrompt('');
   };
 
@@ -87,7 +87,7 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
           병원 정보 기반으로 자동 생성되었습니다. 자유롭게 수정, 삭제하거나 새로 추가할 수 있습니다.
         </p>
         <p className="text-slate-500 text-xs">
-          선택된 프롬프트: <span className="font-bold text-[#00a000]">{selected.size} / 10개</span>
+          선택된 프롬프트: <span className="font-bold text-[#00a000]">{selected.size} / 5개</span>
         </p>
       </div>
 
@@ -195,7 +195,7 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
           ))}
         </div>
         <p className="text-xs text-slate-500 text-center">
-          총 API 호출: <span className="text-slate-300 font-bold">{totalCalls}회</span> ({selected.size}개 프롬프트 × {chatgptCount + geminiCount}회)
+          총 API 호출: <span className="text-slate-300 font-bold">{totalCalls}회</span> ({selected.size}개 프롬프트 × 각 {chatgptCount + geminiCount}회)
         </p>
       </div>
 

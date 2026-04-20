@@ -15,8 +15,8 @@ export interface V3SearchInput {
 }
 
 export interface ScanSettings {
-  chatgptCount: 5 | 10 | 20;
-  geminiCount: 5 | 10 | 20;
+  chatgptCount: 3 | 5 | 10 | 20;
+  geminiCount: 3 | 5 | 10 | 20;
 }
 
 export interface PromptScanResult {
