@@ -2,7 +2,8 @@ export type PromptCategory = '지역형' | '증상형' | '비교형' | '추천�
 
 export interface PromptItem {
   id: string;
-  text: string;
+  text: string;        // full text sent to AI (includes suffix)
+  displayText: string; // clean text shown in UI (no suffix)
   category: PromptCategory;
 }
 

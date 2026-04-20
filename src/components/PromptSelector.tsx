@@ -60,7 +60,7 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
   const addPrompt = () => {
     const text = newPrompt.trim();
     if (!text || items.length >= 20) return;
-    const newItem: PromptItem = { id: `custom-${Date.now()}`, text, category: '추천형' };
+    const newItem: PromptItem = { id: `custom-${Date.now()}`, text, displayText: text, category: '추천형' };
     setItems(prev => [...prev, newItem]);
     if (selected.size < 10) setSelected(prev => new Set([...prev, newItem.id]));
     setNewPrompt('');
@@ -123,7 +123,7 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
                   autoFocus
                 />
               ) : (
-                <p className="text-sm text-slate-200 leading-relaxed">{item.text}</p>
+                <p className="text-sm text-slate-200 leading-relaxed">{item.displayText}</p>
               )}
               <span className={`inline-block mt-2 px-2 py-0.5 rounded-full text-xs border font-medium ${CATEGORY_COLORS[item.category]}`}>
                 {item.category}

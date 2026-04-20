@@ -1,6 +1,6 @@
 import type { PromptItem, PromptCategory } from '@/types/v3';
 
-const SUFFIX = ' 실제 존재하는 치과 이름 3~5개를 나열하고, 각 치과마다 선정 이유와 장점 하나씩만 간단히 써주세요.';
+const SUFFIX = ' 각 치과마다 선정 이유와 장점 하나씩만 간단히 써주세요.';
 
 /** Legacy: used by old search API */
 export function generatePrompts(region: string, treatment: string): string[] {
@@ -49,6 +49,7 @@ export function generatePromptsV3(regions: string[], treatments: string[]): Prom
   return templates.map((t, i) => ({
     id: `prompt-${i}`,
     text: t.text + SUFFIX,
+    displayText: t.text,
     category: t.category,
   }));
 }
