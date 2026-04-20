@@ -29,7 +29,7 @@ export default function SearchForm({ onNext, isLoading = false }: SearchFormProp
     onNext({ clinicFullName: clinicFullName.trim(), clinicShortName: clinicShortName.trim(), treatments, regions });
   };
 
-  const inputCls = "w-full px-4 py-3.5 rounded-xl border border-slate-700 bg-slate-800/50 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition placeholder:text-slate-500 disabled:opacity-50 text-sm";
+  const inputCls = "w-full px-4 py-3.5 rounded-xl border border-slate-700 bg-slate-800/50 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition placeholder:text-slate-500 disabled:opacity-50 text-sm";
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-900/60 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-white/10 w-full max-w-4xl mx-auto flex flex-col gap-6">
@@ -99,7 +99,7 @@ export default function SearchForm({ onNext, isLoading = false }: SearchFormProp
       </div>
 
       <button type="submit" disabled={isLoading || !canSubmit}
-        className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none">
+        className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-green-600 text-white hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none">
         프롬프트 자동 생성
         <ChevronRight className="w-5 h-5" />
       </button>

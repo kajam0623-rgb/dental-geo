@@ -115,8 +115,8 @@ function SovBarChart({ data }: { data: V3AnalysisResult }) {
             formatter={(v: unknown) => [`${v}%`]}
           />
           <Legend wrapperStyle={{ color: '#94a3b8', paddingTop: 8 }} />
-          <Bar dataKey="ChatGPT" fill="#22c55e" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="Gemini" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="ChatGPT" fill="#10b981" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="Gemini" fill="#14b8a6" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -154,7 +154,7 @@ function HistoryLineChart({ history, current }: { history: HistoryRecord[]; curr
   return (
     <div className="bg-slate-800/60 border border-white/10 rounded-2xl p-6 space-y-4">
       <div className="flex items-center gap-2">
-        <TrendingUp className="w-5 h-5 text-blue-400" />
+        <TrendingUp className="w-5 h-5 text-emerald-400" />
         <h3 className="font-bold text-white">날짜별 SOV 추이</h3>
       </div>
       <ResponsiveContainer width="100%" height={220}>
@@ -167,9 +167,9 @@ function HistoryLineChart({ history, current }: { history: HistoryRecord[]; curr
             formatter={(v: unknown) => [`${v}%`]}
           />
           <Legend wrapperStyle={{ color: '#94a3b8' }} />
-          <Line type="monotone" dataKey="ChatGPT" stroke="#22c55e" strokeWidth={2} dot={{ r: 4 }} />
-          <Line type="monotone" dataKey="Gemini" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} />
-          <Line type="monotone" dataKey="종합" stroke="#a78bfa" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 4 }} />
+          <Line type="monotone" dataKey="ChatGPT" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
+          <Line type="monotone" dataKey="Gemini" stroke="#14b8a6" strokeWidth={2} dot={{ r: 4 }} />
+          <Line type="monotone" dataKey="종합" stroke="#34d399" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 4 }} />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -208,7 +208,7 @@ function CompetitorRanking({ data }: { data: V3AnalysisResult }) {
               </div>
               <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all ${c.isTarget ? 'bg-gradient-to-r from-amber-400 to-yellow-500' : 'bg-gradient-to-r from-blue-500 to-purple-500'}`}
+                  className={`h-full rounded-full transition-all ${c.isTarget ? 'bg-gradient-to-r from-amber-400 to-yellow-500' : 'bg-gradient-to-r from-emerald-500 to-teal-500'}`}
                   style={{ width: `${Math.min(c.percentage * 2, 100)}%` }}
                 />
               </div>
@@ -263,7 +263,7 @@ function PromptOverviewTable({ data }: { data: V3AnalysisResult }) {
                   </td>
                   <td className="py-3 pr-3">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      r.prompt.category === '지역형' ? 'bg-blue-500/15 text-blue-300' :
+                      r.prompt.category === '지역형' ? 'bg-teal-500/15 text-teal-300' :
                       r.prompt.category === '증상형' ? 'bg-rose-500/15 text-rose-300' :
                       r.prompt.category === '비교형' ? 'bg-amber-500/15 text-amber-300' :
                       'bg-emerald-500/15 text-emerald-300'
@@ -325,7 +325,7 @@ function PromptDetailTable({ data }: { data: V3AnalysisResult }) {
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${gptPct > 0 ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-500'}`}>
                   GPT {gptPct}%
                 </span>
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${gemPct > 0 ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-700 text-slate-500'}`}>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${gemPct > 0 ? 'bg-teal-500/20 text-teal-400' : 'bg-slate-700 text-slate-500'}`}>
                   GEM {gemPct}%
                 </span>
                 {isOpen ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
@@ -335,7 +335,7 @@ function PromptDetailTable({ data }: { data: V3AnalysisResult }) {
               <div className="px-4 pb-4 grid md:grid-cols-2 gap-3">
                 {[
                   { label: 'ChatGPT', texts: r.chatgpt.responseTexts, color: 'border-green-500/20' },
-                  { label: 'Gemini', texts: r.gemini.responseTexts, color: 'border-blue-500/20' },
+                  { label: 'Gemini', texts: r.gemini.responseTexts, color: 'border-teal-500/20' },
                 ].map(e => (
                   <div key={e.label} className={`border ${e.color} rounded-xl p-3 space-y-2`}>
                     <p className="text-xs font-bold text-slate-400">{e.label} 응답 ({e.texts.length}회)</p>
@@ -474,7 +474,7 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
   return (
     <div className="bg-slate-800/60 border border-white/10 rounded-2xl p-6 space-y-6">
       <div className="flex items-center gap-2">
-        <FileText className="w-5 h-5 text-purple-400" />
+        <FileText className="w-5 h-5 text-teal-400" />
         <h3 className="font-bold text-white">AI 콘텐츠 전략 보고서</h3>
         <span className="text-xs text-slate-500 ml-auto">미노출 역분석 + 블로그 제안</span>
       </div>
@@ -517,7 +517,7 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
                     <span className="text-slate-500">ChatGPT <span className={`font-bold ${gptPct > 0 ? 'text-amber-400' : 'text-rose-400'}`}>{gptPct}%</span></span>
                     <span className="text-slate-500">Gemini <span className={`font-bold ${gemPct > 0 ? 'text-amber-400' : 'text-rose-400'}`}>{gemPct}%</span></span>
                     <span className={`px-2 py-0.5 rounded-full border text-xs font-medium ${
-                      r.prompt.category === '지역형' ? 'bg-blue-500/10 text-blue-300 border-blue-500/20' :
+                      r.prompt.category === '지역형' ? 'bg-teal-500/10 text-teal-300 border-teal-500/20' :
                       r.prompt.category === '증상형' ? 'bg-rose-500/10 text-rose-300 border-rose-500/20' :
                       r.prompt.category === '비교형' ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' :
                       'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
@@ -538,11 +538,11 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
 
                     {/* 블로그 제안 */}
                     <div className="space-y-2">
-                      <p className="text-xs font-bold text-purple-300 uppercase tracking-wide">추천 블로그 콘텐츠</p>
+                      <p className="text-xs font-bold text-teal-300 uppercase tracking-wide">추천 블로그 콘텐츠</p>
                       {analysis.blogs.map((b, i) => (
-                        <div key={i} className="bg-purple-500/5 border border-purple-500/15 rounded-xl p-3 space-y-1.5">
+                        <div key={i} className="bg-teal-500/5 border border-teal-500/15 rounded-xl p-3 space-y-1.5">
                           <div className="flex items-start gap-2">
-                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-purple-600/30 text-purple-300 text-xs font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
+                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-teal-600/30 text-teal-300 text-xs font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
                             <div className="flex-1 space-y-1">
                               <p className="text-sm font-semibold text-white leading-snug">"{b.title}"</p>
                               <div className="flex items-center gap-2">

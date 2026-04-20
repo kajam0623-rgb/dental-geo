@@ -5,7 +5,7 @@ import { Check, Pencil, Trash2, Plus, Sparkles, ChevronRight } from 'lucide-reac
 import type { PromptItem, PromptCategory, ScanSettings } from '@/types/v3';
 
 const CATEGORY_COLORS: Record<PromptCategory, string> = {
-  '지역형': 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+  '지역형': 'bg-teal-500/20 text-teal-300 border-teal-500/30',
   '증상형': 'bg-rose-500/20 text-rose-300 border-rose-500/30',
   '비교형': 'bg-amber-500/20 text-amber-300 border-amber-500/30',
   '추천형': 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
@@ -79,7 +79,7 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
 
       {/* Header */}
       <div className="text-center space-y-2">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-300 text-sm font-semibold">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-sm font-semibold">
           <Sparkles className="w-4 h-4" />
           자동 생성된 프롬프트
         </div>
@@ -87,7 +87,7 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
           병원 정보 기반으로 자동 생성되었습니다. 자유롭게 수정, 삭제하거나 새로 추가할 수 있습니다.
         </p>
         <p className="text-slate-500 text-xs">
-          선택된 프롬프트: <span className={`font-bold ${selected.size === 10 ? 'text-emerald-400' : 'text-blue-400'}`}>{selected.size} / 10개</span>
+          선택된 프롬프트: <span className="font-bold text-emerald-400">{selected.size} / 10개</span>
         </p>
       </div>
 
@@ -98,14 +98,14 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
             key={item.id}
             className={`group flex items-start gap-3 p-4 rounded-2xl border transition-all cursor-pointer ${
               selected.has(item.id)
-                ? 'bg-slate-800/80 border-blue-500/40'
+                ? 'bg-slate-800/80 border-emerald-500/40'
                 : 'bg-slate-900/40 border-white/5 hover:border-white/10'
             }`}
             onClick={() => !editingId && toggle(item.id)}
           >
             {/* Checkbox */}
             <div className={`flex-shrink-0 w-5 h-5 mt-0.5 rounded-md border-2 flex items-center justify-center transition-all ${
-              selected.has(item.id) ? 'bg-blue-600 border-blue-600' : 'border-slate-600'
+              selected.has(item.id) ? 'bg-emerald-600 border-emerald-600' : 'border-slate-600'
             }`}>
               {selected.has(item.id) && <Check className="w-3 h-3 text-white" />}
             </div>
@@ -114,7 +114,7 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
             <div className="flex-1 min-w-0">
               {editingId === item.id ? (
                 <textarea
-                  className="w-full bg-slate-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full bg-slate-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
                   rows={2}
                   value={editText}
                   onChange={e => setEditText(e.target.value)}
@@ -133,7 +133,7 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
             {/* Actions */}
             <div className="flex-shrink-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
               {editingId === item.id ? (
-                <button onClick={saveEdit} className="p-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold">저장</button>
+                <button onClick={saveEdit} className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">저장</button>
               ) : (
                 <button onClick={() => startEdit(item)} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white">
                   <Pencil className="w-3.5 h-3.5" />
@@ -156,7 +156,7 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
             onChange={e => setNewPrompt(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addPrompt()}
             placeholder="+ 프롬프트 직접 추가..."
-            className="flex-1 px-4 py-3 rounded-xl border border-slate-700 bg-slate-800/50 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-500"
+            className="flex-1 px-4 py-3 rounded-xl border border-slate-700 bg-slate-800/50 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 placeholder:text-slate-500"
           />
           <button type="button" onClick={addPrompt} className="px-4 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition">
             <Plus className="w-4 h-4" />
@@ -182,8 +182,8 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
                     className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all border ${
                       (engine === 'chatgpt' ? chatgptCount : geminiCount) === n
                         ? engine === 'chatgpt'
-                          ? 'bg-green-600 border-green-500 text-white'
-                          : 'bg-blue-600 border-blue-500 text-white'
+                          ? 'bg-emerald-600 border-emerald-500 text-white'
+                          : 'bg-teal-600 border-teal-500 text-white'
                         : 'border-slate-700 text-slate-400 hover:border-slate-500 hover:text-white'
                     }`}
                   >
@@ -203,7 +203,7 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
       <button
         onClick={handleStart}
         disabled={isLoading || selected.size === 0}
-        className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+        className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-green-600 text-white hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
       >
         {isLoading ? (
           <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

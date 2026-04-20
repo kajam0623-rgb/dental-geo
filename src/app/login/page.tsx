@@ -32,12 +32,12 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-600/20 blur-[150px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-purple-600/15 blur-[150px] pointer-events-none" />
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-emerald-600/20 blur-[150px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-green-900/30 blur-[150px] pointer-events-none" />
 
       <form onSubmit={handleSubmit} className="relative z-10 w-full max-w-sm space-y-6 bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
         <div className="flex flex-col items-center gap-3">
-          <div className="bg-gradient-to-tr from-blue-500 to-indigo-500 p-3 rounded-2xl shadow-lg shadow-blue-500/20">
+          <div className="bg-gradient-to-tr from-emerald-500 to-green-600 p-3 rounded-2xl shadow-lg shadow-emerald-500/20">
             <Activity className="text-white w-7 h-7" />
           </div>
           <div className="text-center">
@@ -56,7 +56,7 @@ export default function LoginPage() {
               onChange={e => setPassword(e.target.value)}
               placeholder="비밀번호 입력"
               autoFocus
-              className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-700 bg-slate-800/50 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition placeholder:text-slate-500"
+              className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-700 bg-slate-800/50 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition placeholder:text-slate-500"
             />
           </div>
           {error && <p className="text-rose-400 text-sm">{error}</p>}
@@ -65,7 +65,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={loading || !password}
-          className="w-full py-3.5 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+          className="w-full py-3.5 rounded-xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 text-white hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
         >
           {loading ? '확인 중...' : '입장'}
         </button>
