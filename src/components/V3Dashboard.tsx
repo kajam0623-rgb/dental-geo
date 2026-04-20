@@ -624,11 +624,16 @@ export default function V3Dashboard({ data, history }: V3DashboardProps) {
         backgroundColor: '#0f172a',
         scale: 2,
         useCORS: true,
+        logging: false,
       });
       const link = document.createElement('a');
       link.download = `GEO리포트_${data.input.clinicFullName}_${new Date(data.scanDate).toLocaleDateString('ko-KR')}.png`;
       link.href = canvas.toDataURL('image/png');
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      alert('PNG 저장 실패: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setSaving(false);
     }
