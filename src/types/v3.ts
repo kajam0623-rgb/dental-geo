@@ -37,6 +37,7 @@ export interface CompetitorRank {
   name: string;
   count: number;
   percentage: number;
+  isTarget?: boolean;
 }
 
 export interface V3AnalysisResult {

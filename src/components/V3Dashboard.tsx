@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line,
 } from 'recharts';
 import { Trophy, TrendingUp, FileText, ChevronDown, ChevronUp, Download } from 'lucide-react';
-import { useReactToPrint } from 'react-to-print';
 import type { V3AnalysisResult, HistoryRecord, PromptCategory } from '@/types/v3';
 
 // ─── Helpers ────────────────────────────────────────────────────
@@ -191,7 +190,7 @@ function CompetitorRanking({ data }: { data: V3AnalysisResult }) {
       </div>
       <div className="space-y-2">
         {data.competitorRankings.map((c, i) => (
-          <div key={c.name} className="flex items-center gap-3">
+          <div key={c.name} className={`flex items-center gap-3 rounded-xl px-2 py-1 ${c.isTarget ? 'bg-amber-500/10 border border-amber-500/30' : ''}`}>
             <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
               i === 0 ? 'bg-amber-500/20 text-amber-400' :
               i === 1 ? 'bg-slate-500/20 text-slate-300' :
@@ -199,12 +198,17 @@ function CompetitorRanking({ data }: { data: V3AnalysisResult }) {
             }`}>{i + 1}</span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium text-slate-200 truncate">{c.name}</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`text-sm font-medium truncate ${c.isTarget ? 'text-amber-300 font-bold' : 'text-slate-200'}`}>{c.name}</span>
+                  {c.isTarget && (
+                    <span className="flex-shrink-0 text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-bold">우리 병원</span>
+                  )}
+                </div>
                 <span className="text-sm font-bold text-slate-300 ml-2">{c.percentage}%</span>
               </div>
               <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all"
+                  className={`h-full rounded-full transition-all ${c.isTarget ? 'bg-gradient-to-r from-amber-400 to-yellow-500' : 'bg-gradient-to-r from-blue-500 to-purple-500'}`}
                   style={{ width: `${Math.min(c.percentage * 2, 100)}%` }}
                 />
               </div>
@@ -609,39 +613,47 @@ interface V3DashboardProps {
 
 export default function V3Dashboard({ data, history }: V3DashboardProps) {
   const printRef = useRef<HTMLDivElement>(null);
-  const handlePrint = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: `GEO리포트_${data.input.clinicFullName}_${new Date(data.scanDate).toLocaleDateString('ko-KR')}`,
-    pageStyle: `
-      @page { size: A4; margin: 12mm; }
-      body { background: #0f172a !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    `,
-  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSavePng = useCallback(async () => {
+    if (!printRef.current) return;
+    setSaving(true);
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(printRef.current, {
+        backgroundColor: '#0f172a',
+        scale: 2,
+        useCORS: true,
+      });
+      const link = document.createElement('a');
+      link.download = `GEO리포트_${data.input.clinicFullName}_${new Date(data.scanDate).toLocaleDateString('ko-KR')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } finally {
+      setSaving(false);
+    }
+  }, [data.input.clinicFullName, data.scanDate]);
 
   return (
     <div className="w-full space-y-6">
-      {/* Header + PDF button */}
+      {/* Header + PNG button */}
       <div className="flex items-center justify-between px-1">
         <div>
           <h2 className="text-xl font-bold text-white">{data.input.clinicFullName}</h2>
           <p className="text-sm text-slate-400">{data.input.regions.join(' · ')} | {data.input.treatments.join(', ')}</p>
         </div>
         <button
-          onClick={() => handlePrint()}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-sm font-semibold text-slate-300 hover:text-white transition"
+          onClick={handleSavePng}
+          disabled={saving}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-sm font-semibold text-slate-300 hover:text-white transition disabled:opacity-50 disabled:pointer-events-none"
         >
           <Download className="w-4 h-4" />
-          PDF 저장
+          {saving ? '저장 중...' : 'PNG 저장'}
         </button>
       </div>
 
-      {/* Printable area */}
+      {/* Capture area */}
       <div ref={printRef} className="space-y-6">
-        {/* Print-only header */}
-        <div className="hidden print:block mb-4">
-          <h1 className="text-2xl font-bold text-white">{data.input.clinicFullName} — AI GEO 점유율 리포트</h1>
-          <p className="text-slate-400 text-sm">{data.input.regions.join(' · ')} | {data.input.treatments.join(', ')} | 스캔: {formatDate(data.scanDate)}</p>
-        </div>
 
         <GaugeSection data={data} />
         <SovBarChart data={data} />

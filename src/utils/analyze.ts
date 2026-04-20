@@ -109,7 +109,11 @@ export async function runAnalysisV3(
     let chatgptMentions = 0;
     const chatgptTexts: string[] = [];
     for (const r of gptResults) {
-      if (isMentionedAny(r.responseText, allNames)) chatgptMentions++;
+      const targetHit = isMentionedAny(r.responseText, allNames);
+      if (targetHit) {
+        chatgptMentions++;
+        competitorCountMap.set(input.clinicFullName, (competitorCountMap.get(input.clinicFullName) ?? 0) + 1);
+      }
       chatgptTexts.push(r.responseText);
       extractCompetitors(r.responseText).forEach(c => {
         if (!allNames.some(n => isMentioned(c, n)))
@@ -120,7 +124,11 @@ export async function runAnalysisV3(
     let geminiMentions = 0;
     const geminiTexts: string[] = [];
     for (const r of gemResults) {
-      if (isMentionedAny(r.responseText, allNames)) geminiMentions++;
+      const targetHit = isMentionedAny(r.responseText, allNames);
+      if (targetHit) {
+        geminiMentions++;
+        competitorCountMap.set(input.clinicFullName, (competitorCountMap.get(input.clinicFullName) ?? 0) + 1);
+      }
       geminiTexts.push(r.responseText);
       extractCompetitors(r.responseText).forEach(c => {
         if (!allNames.some(n => isMentioned(c, n)))
@@ -153,14 +161,15 @@ export async function runAnalysisV3(
     return gptHit === gemHit;
   }).length;
 
-  // Competitor rankings
+  // Competitor rankings — target clinic included, marked with isTarget
   const competitorRankings: CompetitorRank[] = Array.from(competitorCountMap.entries())
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
+    .slice(0, 15)
     .map(([name, count]) => ({
       name,
       count,
       percentage: Number(((count / totalResponses) * 100).toFixed(1)),
+      isTarget: name === input.clinicFullName,
     }));
 
   return {
