@@ -21,9 +21,7 @@ interface PromptSelectorProps {
 
 export default function PromptSelector({ prompts, onStart, isLoading = false }: PromptSelectorProps) {
   const [items, setItems] = useState<PromptItem[]>(prompts);
-  const [selected, setSelected] = useState<Set<string>>(
-    new Set(prompts.slice(0, 5).map(p => p.id))
-  );
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [newPrompt, setNewPrompt] = useState('');

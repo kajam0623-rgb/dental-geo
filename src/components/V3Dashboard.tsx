@@ -115,8 +115,8 @@ function SovBarChart({ data }: { data: V3AnalysisResult }) {
             formatter={(v: unknown) => [`${v}%`]}
           />
           <Legend wrapperStyle={{ color: '#94a3b8', paddingTop: 8 }} />
-          <Bar dataKey="ChatGPT" fill="#006400" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="Gemini" fill="#1a1a1a" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="ChatGPT" fill="#FF8C00" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="Gemini" fill="#FFD700" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -167,9 +167,9 @@ function HistoryLineChart({ history, current }: { history: HistoryRecord[]; curr
             formatter={(v: unknown) => [`${v}%`]}
           />
           <Legend wrapperStyle={{ color: '#94a3b8' }} />
-          <Line type="monotone" dataKey="ChatGPT" stroke="#006400" strokeWidth={2} dot={{ r: 4 }} />
-          <Line type="monotone" dataKey="Gemini" stroke="#333333" strokeWidth={2} dot={{ r: 4 }} />
-          <Line type="monotone" dataKey="종합" stroke="#009900" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 4 }} />
+          <Line type="monotone" dataKey="ChatGPT" stroke="#FF8C00" strokeWidth={2} dot={{ r: 4 }} />
+          <Line type="monotone" dataKey="Gemini" stroke="#FFD700" strokeWidth={2} dot={{ r: 4 }} />
+          <Line type="monotone" dataKey="종합" stroke="#39FF14" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 4 }} />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -619,16 +619,14 @@ export default function V3Dashboard({ data, history }: V3DashboardProps) {
     if (!printRef.current) return;
     setSaving(true);
     try {
-      const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(printRef.current, {
+      const { toPng } = await import('html-to-image');
+      const dataUrl = await toPng(printRef.current, {
         backgroundColor: '#0f172a',
-        scale: 2,
-        useCORS: true,
-        logging: false,
+        pixelRatio: 2,
       });
       const link = document.createElement('a');
       link.download = `GEO리포트_${data.input.clinicFullName}_${new Date(data.scanDate).toLocaleDateString('ko-KR')}.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.href = dataUrl;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
