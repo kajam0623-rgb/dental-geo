@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line,
 } from 'recharts';
-import { Trophy, TrendingUp, FileText, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { Trophy, TrendingUp, FileText, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import { useReactToPrint } from 'react-to-print';
 import type { V3AnalysisResult, HistoryRecord, PromptCategory } from '@/types/v3';
 
 // ─── Helpers ────────────────────────────────────────────────────
@@ -18,6 +19,52 @@ function formatDate(iso: string) {
 function SovBadge({ value }: { value: number }) {
   const color = value >= 60 ? 'text-emerald-400' : value >= 30 ? 'text-amber-400' : 'text-rose-400';
   return <span className={`text-2xl font-extrabold ${color}`}>{value}%</span>;
+}
+
+// ─── SOV Donut Gauge ────────────────────────────────────────────
+
+function SovGauge({ value, label, color }: { value: number; label: string; color: string }) {
+  const r = 52;
+  const circ = 2 * Math.PI * r;
+  const filled = Math.min(value / 100, 1) * circ;
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <svg width="130" height="130" viewBox="0 0 130 130">
+        <circle cx="65" cy="65" r={r} fill="none" stroke="#1e293b" strokeWidth="13" />
+        <circle cx="65" cy="65" r={r} fill="none" stroke={color} strokeWidth="13"
+          strokeDasharray={`${filled} ${circ}`} strokeLinecap="round"
+          transform="rotate(-90 65 65)" style={{ transition: 'stroke-dasharray 0.8s ease' }} />
+        <text x="65" y="60" textAnchor="middle" fill="white" fontSize="22" fontWeight="800">{value}%</text>
+        <text x="65" y="78" textAnchor="middle" fill="#94a3b8" fontSize="10">SOV</text>
+      </svg>
+      <p className="text-xs font-semibold text-slate-400">{label}</p>
+    </div>
+  );
+}
+
+function GaugeSection({ data }: { data: V3AnalysisResult }) {
+  const overallColor = data.summary.overall.sov >= 60 ? '#10b981' : data.summary.overall.sov >= 30 ? '#f59e0b' : '#f43f5e';
+  const gptColor = data.summary.chatgpt.sov >= 60 ? '#10b981' : data.summary.chatgpt.sov >= 30 ? '#f59e0b' : '#f43f5e';
+  const gemColor = data.summary.gemini.sov >= 60 ? '#10b981' : data.summary.gemini.sov >= 30 ? '#f59e0b' : '#f43f5e';
+  return (
+    <div className="bg-slate-800/60 border border-white/10 rounded-2xl p-6">
+      <div className="flex flex-col sm:flex-row items-center justify-around gap-6">
+        <SovGauge value={data.summary.overall.sov} label="종합" color={overallColor} />
+        <div className="hidden sm:block w-px h-28 bg-white/10" />
+        <SovGauge value={data.summary.chatgpt.sov} label="ChatGPT" color={gptColor} />
+        <SovGauge value={data.summary.gemini.sov} label="Gemini" color={gemColor} />
+        <div className="hidden sm:block w-px h-28 bg-white/10" />
+        <div className="text-center space-y-1">
+          <p className="text-xs text-slate-500">스캔 일시</p>
+          <p className="text-sm font-bold text-white">{formatDate(data.scanDate)}</p>
+          <p className="text-xs text-slate-500 mt-2">총 스캔 횟수</p>
+          <p className="text-sm font-bold text-white">{data.summary.chatgpt.total + data.summary.gemini.total}회</p>
+          <p className="text-xs text-slate-500 mt-2">엔진 일치율</p>
+          <p className="text-sm font-bold text-white">{data.summary.agreementRate}%</p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── SOV Summary Cards ──────────────────────────────────────────
@@ -164,6 +211,85 @@ function CompetitorRanking({ data }: { data: V3AnalysisResult }) {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Prompt Overview Table (O/X 한눈에) ─────────────────────────
+
+function PromptOverviewTable({ data }: { data: V3AnalysisResult }) {
+  const pct = (mentioned: number, total: number) =>
+    total > 0 ? Math.round((mentioned / total) * 100) : 0;
+
+  const cell = (p: number) => {
+    const bg = p >= 50 ? 'bg-emerald-500/20 text-emerald-300' : p > 0 ? 'bg-amber-500/20 text-amber-300' : 'bg-rose-500/15 text-rose-400';
+    const label = p >= 50 ? '●' : p > 0 ? '△' : '✕';
+    return { bg, label, p };
+  };
+
+  return (
+    <div className="bg-slate-800/60 border border-white/10 rounded-2xl p-6 space-y-4">
+      <h3 className="font-bold text-white">전체 프롬프트 결과 한눈에 보기</h3>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-white/10 text-xs text-slate-400 font-semibold">
+              <th className="text-left pb-3 pr-4 w-8">#</th>
+              <th className="text-left pb-3 pr-4">프롬프트</th>
+              <th className="text-left pb-3 pr-3 w-20">유형</th>
+              <th className="text-center pb-3 px-3 w-24">ChatGPT</th>
+              <th className="text-center pb-3 px-3 w-24">Gemini</th>
+              <th className="text-center pb-3 pl-3 w-20">평균</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {data.promptResults.map((r, i) => {
+              const gpt = cell(pct(r.chatgpt.mentioned, r.chatgpt.total));
+              const gem = cell(pct(r.gemini.mentioned, r.gemini.total));
+              const avg = Math.round((gpt.p + gem.p) / 2);
+              const avgCell = cell(avg);
+              return (
+                <tr key={r.prompt.id} className="hover:bg-white/[0.02] transition">
+                  <td className="py-3 pr-4 text-slate-500 text-xs">{i + 1}</td>
+                  <td className="py-3 pr-4">
+                    <p className="text-slate-300 text-xs leading-snug line-clamp-2">
+                      {r.prompt.displayText ?? r.prompt.text}
+                    </p>
+                  </td>
+                  <td className="py-3 pr-3">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      r.prompt.category === '지역형' ? 'bg-blue-500/15 text-blue-300' :
+                      r.prompt.category === '증상형' ? 'bg-rose-500/15 text-rose-300' :
+                      r.prompt.category === '비교형' ? 'bg-amber-500/15 text-amber-300' :
+                      'bg-emerald-500/15 text-emerald-300'
+                    }`}>{r.prompt.category}</span>
+                  </td>
+                  <td className="py-3 px-3 text-center">
+                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold ${gpt.bg}`}>
+                      {gpt.label} {gpt.p}%
+                    </span>
+                  </td>
+                  <td className="py-3 px-3 text-center">
+                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold ${gem.bg}`}>
+                      {gem.label} {gem.p}%
+                    </span>
+                  </td>
+                  <td className="py-3 pl-3 text-center">
+                    <span className={`text-xs font-extrabold ${avgCell.p >= 50 ? 'text-emerald-400' : avgCell.p > 0 ? 'text-amber-400' : 'text-rose-400'}`}>
+                      {avg}%
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex items-center gap-4 pt-2 text-xs text-slate-500">
+        <span className="flex items-center gap-1"><span className="text-emerald-400">●</span> 50% 이상</span>
+        <span className="flex items-center gap-1"><span className="text-amber-400">△</span> 1~49%</span>
+        <span className="flex items-center gap-1"><span className="text-rose-400">✕</span> 0%</span>
       </div>
     </div>
   );
@@ -482,25 +608,49 @@ interface V3DashboardProps {
 }
 
 export default function V3Dashboard({ data, history }: V3DashboardProps) {
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `GEO리포트_${data.input.clinicFullName}_${new Date(data.scanDate).toLocaleDateString('ko-KR')}`,
+    pageStyle: `
+      @page { size: A4; margin: 12mm; }
+      body { background: #0f172a !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    `,
+  });
+
   return (
     <div className="w-full space-y-6">
-      {/* Scan meta */}
+      {/* Header + PDF button */}
       <div className="flex items-center justify-between px-1">
         <div>
           <h2 className="text-xl font-bold text-white">{data.input.clinicFullName}</h2>
           <p className="text-sm text-slate-400">{data.input.regions.join(' · ')} | {data.input.treatments.join(', ')}</p>
         </div>
-        <p className="text-xs text-slate-500 bg-slate-800/60 px-3 py-1.5 rounded-full border border-white/10">
-          스캔: {formatDate(data.scanDate)}
-        </p>
+        <button
+          onClick={() => handlePrint()}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-sm font-semibold text-slate-300 hover:text-white transition"
+        >
+          <Download className="w-4 h-4" />
+          PDF 저장
+        </button>
       </div>
 
-      <SummaryCards data={data} />
-      <SovBarChart data={data} />
-      <HistoryLineChart history={history} current={data} />
-      <CompetitorRanking data={data} />
-      <PromptDetailTable data={data} />
-      <AnalysisReport data={data} />
+      {/* Printable area */}
+      <div ref={printRef} className="space-y-6">
+        {/* Print-only header */}
+        <div className="hidden print:block mb-4">
+          <h1 className="text-2xl font-bold text-white">{data.input.clinicFullName} — AI GEO 점유율 리포트</h1>
+          <p className="text-slate-400 text-sm">{data.input.regions.join(' · ')} | {data.input.treatments.join(', ')} | 스캔: {formatDate(data.scanDate)}</p>
+        </div>
+
+        <GaugeSection data={data} />
+        <SovBarChart data={data} />
+        <PromptOverviewTable data={data} />
+        <HistoryLineChart history={history} current={data} />
+        <CompetitorRanking data={data} />
+        <PromptDetailTable data={data} />
+        <AnalysisReport data={data} />
+      </div>
     </div>
   );
 }
