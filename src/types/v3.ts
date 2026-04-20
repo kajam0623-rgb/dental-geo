@@ -1,0 +1,62 @@
+export type PromptCategory = '지역형' | '증상형' | '비교형' | '추천형';
+
+export interface PromptItem {
+  id: string;
+  text: string;
+  category: PromptCategory;
+}
+
+export interface V3SearchInput {
+  clinicFullName: string;
+  clinicShortName: string;
+  treatments: string[];
+  regions: string[];
+}
+
+export interface ScanSettings {
+  chatgptCount: 5 | 10 | 20;
+  geminiCount: 5 | 10 | 20;
+}
+
+export interface PromptScanResult {
+  prompt: PromptItem;
+  chatgpt: {
+    mentioned: number;
+    total: number;
+    responseTexts: string[];
+  };
+  gemini: {
+    mentioned: number;
+    total: number;
+    responseTexts: string[];
+  };
+}
+
+export interface CompetitorRank {
+  name: string;
+  count: number;
+  percentage: number;
+}
+
+export interface V3AnalysisResult {
+  input: V3SearchInput;
+  settings: ScanSettings;
+  scanDate: string;
+  promptResults: PromptScanResult[];
+  summary: {
+    chatgpt: { sov: number; mentions: number; total: number };
+    gemini: { sov: number; mentions: number; total: number };
+    overall: { sov: number };
+    agreementRate: number;
+  };
+  competitorRankings: CompetitorRank[];
+}
+
+export interface HistoryRecord {
+  scanDate: string;
+  clinicFullName: string;
+  clinicShortName: string;
+  chatgptSov: number;
+  geminiSov: number;
+  overallSov: number;
+}
