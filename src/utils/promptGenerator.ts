@@ -1,6 +1,6 @@
 import type { PromptItem, PromptCategory } from '@/types/v3';
 
-const SUFFIX = ' 답변 시 반드시 실제로 존재하는 특정 병원(치과)의 이름만 3~5개 짧게 나열해 주세요. 부연 설명은 생략하세요.';
+const SUFFIX = ' 실제 존재하는 치과 이름 3~5개를 나열하고, 각 치과마다 선정 이유와 장점 하나씩만 간단히 써주세요.';
 
 /** Legacy: used by old search API */
 export function generatePrompts(region: string, treatment: string): string[] {

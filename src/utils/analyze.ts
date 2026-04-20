@@ -73,57 +73,73 @@ const FALLBACK: QueryResult = { mentioned: false, responseText: '[타임아웃] 
 
 // ─── V3 Analysis ───────────────────────────────────────────────
 
+/** Run N concurrent queries with a concurrency cap */
+async function runBatch<T>(tasks: Array<() => Promise<T>>, concurrency = 5): Promise<T[]> {
+  const results: T[] = [];
+  for (let i = 0; i < tasks.length; i += concurrency) {
+    const batch = tasks.slice(i, i + concurrency).map(fn => fn());
+    results.push(...await Promise.all(batch));
+  }
+  return results;
+}
+
 export async function runAnalysisV3(
   input: V3SearchInput,
   selectedPrompts: PromptItem[],
   settings: ScanSettings,
 ): Promise<V3AnalysisResult> {
   const allNames = [input.clinicFullName, input.clinicShortName].filter(Boolean);
-  const promptResults: PromptScanResult[] = [];
   const competitorCountMap = new Map<string, number>();
   const totalResponses = (settings.chatgptCount + settings.geminiCount) * selectedPrompts.length;
 
-  for (let pi = 0; pi < selectedPrompts.length; pi++) {
-    const promptItem = selectedPrompts[pi];
-    if (pi > 0) await new Promise(r => setTimeout(r, 1500));
+  // Process each prompt: run all its queries in parallel (capped at 5 concurrent)
+  const processPrompt = async (promptItem: PromptItem): Promise<PromptScanResult> => {
+    const gptTasks = Array.from({ length: settings.chatgptCount }, () =>
+      () => withTimeout(queryChatGPT(promptItem.text, input.clinicFullName), TIMEOUT_MS, FALLBACK)
+    );
+    const gemTasks = Array.from({ length: settings.geminiCount }, () =>
+      () => withTimeout(queryGemini(promptItem.text, input.clinicFullName), TIMEOUT_MS, FALLBACK)
+    );
 
-    const chatgptTexts: string[] = [];
-    const geminiTexts: string[] = [];
+    const [gptResults, gemResults] = await Promise.all([
+      runBatch(gptTasks, 5),
+      runBatch(gemTasks, 5),
+    ]);
+
     let chatgptMentions = 0;
+    const chatgptTexts: string[] = [];
+    for (const r of gptResults) {
+      if (isMentionedAny(r.responseText, allNames)) chatgptMentions++;
+      chatgptTexts.push(r.responseText);
+      extractCompetitors(r.responseText).forEach(c => {
+        if (!allNames.some(n => isMentioned(c, n)))
+          competitorCountMap.set(c, (competitorCountMap.get(c) ?? 0) + 1);
+      });
+    }
+
     let geminiMentions = 0;
-
-    // Run ChatGPT N times
-    for (let i = 0; i < settings.chatgptCount; i++) {
-      if (i > 0) await new Promise(r => setTimeout(r, 1000));
-      const result = await withTimeout(queryChatGPT(promptItem.text, input.clinicFullName), TIMEOUT_MS, FALLBACK);
-      if (isMentionedAny(result.responseText, allNames)) chatgptMentions++;
-      chatgptTexts.push(result.responseText);
-      extractCompetitors(result.responseText).forEach(c => {
-        if (!allNames.some(n => isMentioned(c, n))) {
+    const geminiTexts: string[] = [];
+    for (const r of gemResults) {
+      if (isMentionedAny(r.responseText, allNames)) geminiMentions++;
+      geminiTexts.push(r.responseText);
+      extractCompetitors(r.responseText).forEach(c => {
+        if (!allNames.some(n => isMentioned(c, n)))
           competitorCountMap.set(c, (competitorCountMap.get(c) ?? 0) + 1);
-        }
       });
     }
 
-    // Run Gemini N times
-    for (let i = 0; i < settings.geminiCount; i++) {
-      if (i > 0) await new Promise(r => setTimeout(r, 1000));
-      const result = await withTimeout(queryGemini(promptItem.text, input.clinicFullName), TIMEOUT_MS, FALLBACK);
-      if (isMentionedAny(result.responseText, allNames)) geminiMentions++;
-      geminiTexts.push(result.responseText);
-      extractCompetitors(result.responseText).forEach(c => {
-        if (!allNames.some(n => isMentioned(c, n))) {
-          competitorCountMap.set(c, (competitorCountMap.get(c) ?? 0) + 1);
-        }
-      });
-    }
-
-    promptResults.push({
+    return {
       prompt: promptItem,
       chatgpt: { mentioned: chatgptMentions, total: settings.chatgptCount, responseTexts: chatgptTexts },
       gemini: { mentioned: geminiMentions, total: settings.geminiCount, responseTexts: geminiTexts },
-    });
-  }
+    };
+  };
+
+  // Run up to 3 prompts concurrently
+  const promptResults = await runBatch(
+    selectedPrompts.map(p => () => processPrompt(p)),
+    3
+  );
 
   // Summary
   const chatgptTotal = settings.chatgptCount * selectedPrompts.length;
