@@ -115,8 +115,8 @@ function SovBarChart({ data }: { data: V3AnalysisResult }) {
             formatter={(v: unknown) => [`${v}%`]}
           />
           <Legend wrapperStyle={{ color: '#94a3b8', paddingTop: 8 }} />
-          <Bar dataKey="ChatGPT" fill="#FF8C00" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="Gemini" fill="#FFD700" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="ChatGPT" fill="#60A5FA" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="Gemini" fill="#A78BFA" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -167,9 +167,9 @@ function HistoryLineChart({ history, current }: { history: HistoryRecord[]; curr
             formatter={(v: unknown) => [`${v}%`]}
           />
           <Legend wrapperStyle={{ color: '#94a3b8' }} />
-          <Line type="monotone" dataKey="ChatGPT" stroke="#FF8C00" strokeWidth={2} dot={{ r: 4 }} />
-          <Line type="monotone" dataKey="Gemini" stroke="#FFD700" strokeWidth={2} dot={{ r: 4 }} />
-          <Line type="monotone" dataKey="종합" stroke="#39FF14" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 4 }} />
+          <Line type="monotone" dataKey="ChatGPT" stroke="#60A5FA" strokeWidth={2} dot={{ r: 4 }} />
+          <Line type="monotone" dataKey="Gemini" stroke="#A78BFA" strokeWidth={2} dot={{ r: 4 }} />
+          <Line type="monotone" dataKey="종합" stroke="#4ADE80" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 4 }} />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -208,7 +208,7 @@ function CompetitorRanking({ data }: { data: V3AnalysisResult }) {
               </div>
               <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all ${c.isTarget ? 'bg-gradient-to-r from-amber-400 to-yellow-500' : 'bg-gradient-to-r from-[#006400] to-black'}`}
+                  className={`h-full rounded-full transition-all ${c.isTarget ? 'bg-amber-400' : 'bg-[#006400]'}`}
                   style={{ width: `${Math.min(c.percentage * 2, 100)}%` }}
                 />
               </div>
@@ -339,9 +339,9 @@ function PromptDetailTable({ data }: { data: V3AnalysisResult }) {
                 ].map(e => (
                   <div key={e.label} className={`border ${e.color} rounded-xl p-3 space-y-2`}>
                     <p className="text-xs font-bold text-slate-400">{e.label} 응답 ({e.texts.length}회)</p>
-                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                    <div className="space-y-1">
                       {e.texts.map((t, i) => (
-                        <p key={i} className="text-xs text-slate-400 bg-slate-900/50 rounded-lg p-2 leading-relaxed">{t.slice(0, 200)}{t.length > 200 ? '…' : ''}</p>
+                        <p key={i} className="text-xs text-slate-400 bg-slate-900/50 rounded-lg p-2 leading-relaxed">{t}</p>
                       ))}
                     </div>
                   </div>

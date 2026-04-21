@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Activity, Sparkles, MapPin, Search as SearchIcon, ChevronLeft, Save, Check } from 'lucide-react';
+import { Activity, Sparkles, MapPin, Search as SearchIcon, ChevronLeft, Save, Check, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SearchForm from '@/components/SearchForm';
 import PromptSelector from '@/components/PromptSelector';
@@ -167,7 +167,7 @@ export default function Home() {
               <ChevronLeft className="w-5 h-5" />
             </button>
           )}
-          <div className="bg-gradient-to-tr from-[#006400] to-black p-2 rounded-xl shadow-lg shadow-[#006400]/30">
+          <div className="bg-[#006400] p-2 rounded-xl shadow-lg shadow-[#006400]/30">
             <Activity className="text-white w-6 h-6" />
           </div>
           <h1 className="text-xl font-bold tracking-tight text-white">
@@ -223,7 +223,7 @@ export default function Home() {
                 </div>
                 <h2 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight">
                   치과 AI 플랫폼 검색 장악력을<br className="hidden md:block" />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#006400] to-[#009900]"> 한눈에 확인하세요</span>
+                  <span className="text-[#006400]"> 한눈에 확인하세요</span>
                 </h2>
                 <p className="text-slate-400 text-base max-w-xl mx-auto">치과명, 진료과목, 지역을 입력하면 AI가 롱테일 프롬프트를 자동 생성합니다.</p>
               </div>
@@ -275,6 +275,21 @@ export default function Home() {
                     }`}
                   >
                     {scanSaved ? <><Check className="w-4 h-4" /> 저장됨</> : <><Save className="w-4 h-4" /> 치과 저장</>}
+                  </button>
+                )}
+                {isFromSaved && (
+                  <button
+                    onClick={() => {
+                      if (!result) return;
+                      setSearchInput(result.input);
+                      setGeneratedPrompts(generatePromptsV3(result.input.regions, result.input.treatments));
+                      setIsFromSaved(false);
+                      setScanSaved(false);
+                      setStep('prompts');
+                    }}
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#006400] text-white font-bold text-sm hover:shadow-[0_0_20px_rgba(0,100,0,0.4)] hover:scale-[1.01] active:scale-95 transition-all"
+                  >
+                    <RefreshCw className="w-4 h-4" /> 이 치과로 새 분석
                   </button>
                 )}
                 <button onClick={reset} className="px-8 py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition font-medium">

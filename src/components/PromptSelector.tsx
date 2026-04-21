@@ -11,7 +11,7 @@ const CATEGORY_COLORS: Record<PromptCategory, string> = {
   '추천형': 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
 };
 
-const COUNT_OPTIONS: Array<3 | 5 | 10 | 20> = [3, 5, 10, 20];
+const COUNT_OPTIONS = [5, 10] as const;
 
 interface PromptSelectorProps {
   prompts: PromptItem[];
@@ -22,18 +22,19 @@ interface PromptSelectorProps {
 export default function PromptSelector({ prompts, onStart, isLoading = false }: PromptSelectorProps) {
   const [items, setItems] = useState<PromptItem[]>(prompts);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [maxSelect, setMaxSelect] = useState<5 | 10>(5);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [newPrompt, setNewPrompt] = useState('');
-  const [chatgptCount, setChatgptCount] = useState<3 | 5 | 10 | 20>(5);
-  const [geminiCount, setGeminiCount] = useState<3 | 5 | 10 | 20>(5);
+  const [chatgptCount, setChatgptCount] = useState<5 | 10>(5);
+  const [geminiCount, setGeminiCount] = useState<5 | 10>(5);
 
   const toggle = (id: string) => {
     setSelected(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
-      } else if (next.size < 5) {
+      } else if (next.size < maxSelect) {
         next.add(id);
       }
       return next;
@@ -60,7 +61,7 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
     if (!text || items.length >= 20) return;
     const newItem: PromptItem = { id: `custom-${Date.now()}`, text, displayText: text, category: '추천형' };
     setItems(prev => [...prev, newItem]);
-    if (selected.size < 5) setSelected(prev => new Set([...prev, newItem.id]));
+    if (selected.size < maxSelect) setSelected(prev => new Set([...prev, newItem.id]));
     setNewPrompt('');
   };
 
@@ -84,9 +85,30 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
         <p className="text-slate-400 text-sm">
           병원 정보 기반으로 자동 생성되었습니다. 자유롭게 수정, 삭제하거나 새로 추가할 수 있습니다.
         </p>
-        <p className="text-slate-500 text-xs">
-          선택된 프롬프트: <span className="font-bold text-[#00a000]">{selected.size} / 5개</span>
-        </p>
+        <div className="flex items-center justify-center gap-3">
+          <span className="text-slate-500 text-xs">
+            선택됨: <span className="font-bold text-[#00a000]">{selected.size} / {maxSelect}개</span>
+          </span>
+          <div className="flex gap-1">
+            {([5, 10] as const).map(n => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => {
+                  setMaxSelect(n);
+                  if (selected.size > n) {
+                    setSelected(new Set([...selected].slice(0, n)));
+                  }
+                }}
+                className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${
+                  maxSelect === n ? 'bg-[#006400] border-[#006400] text-white' : 'border-slate-700 text-slate-400 hover:text-white'
+                }`}
+              >
+                {n}개
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Prompt List */}
@@ -179,9 +201,7 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
                     onClick={() => engine === 'chatgpt' ? setChatgptCount(n) : setGeminiCount(n)}
                     className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all border ${
                       (engine === 'chatgpt' ? chatgptCount : geminiCount) === n
-                        ? engine === 'chatgpt'
-                          ? 'bg-[#006400] border-[#006400] text-white'
-                          : 'bg-black border-black text-white'
+                        ? 'bg-[#006400] border-[#006400] text-white'
                         : 'border-slate-700 text-slate-400 hover:border-slate-500 hover:text-white'
                     }`}
                   >
@@ -201,7 +221,7 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
       <button
         onClick={handleStart}
         disabled={isLoading || selected.size === 0}
-        className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 bg-gradient-to-r from-[#006400] to-black text-white hover:shadow-[0_0_20px_rgba(0,100,0,0.5)] hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+        className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 bg-[#006400] text-white hover:shadow-[0_0_20px_rgba(0,100,0,0.5)] hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
       >
         {isLoading ? (
           <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
