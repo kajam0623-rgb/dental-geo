@@ -9,22 +9,48 @@ interface QueryResult {
   responseText: string;
 }
 
+function normalizeText(text: string): string {
+  return text.replace(/[^가-힣a-zA-Z0-9]/g, '').toLowerCase();
+}
+
 function isMentioned(text: string, clinicName: string): boolean {
-  const normalizedText = text.replace(/\s+/g, '').toLowerCase();
-  const normalizedClinicName = clinicName.replace(/\s+/g, '').toLowerCase();
-  return normalizedText.includes(normalizedClinicName);
+  const normalizedText = normalizeText(text);
+  const normalizedName = normalizeText(clinicName);
+  if (!normalizedName) return false;
+  return normalizedText.includes(normalizedName);
 }
 
 function isMentionedAny(text: string, names: string[]): boolean {
   return names.some(n => isMentioned(text, n));
 }
 
-/** Extract bold-formatted clinic names (**name**) from AI response */
 function extractCompetitors(text: string): string[] {
-  const matches = text.match(/\*\*([^*]{2,20})\*\*/g) ?? [];
-  return matches
-    .map(m => m.replace(/\*\*/g, '').trim())
-    .filter(n => n.length >= 2 && (n.includes('치과') || n.includes('의원') || n.includes('병원')));
+  const found = new Set<string>();
+  const CLINIC_RE = /치과|의원|병원|클리닉|덴탈/;
+
+  // 1. Bold markdown: **병원명**
+  for (const m of text.matchAll(/\*\*([^*]{2,20})\*\*/g)) {
+    const name = m[1].trim();
+    if (CLINIC_RE.test(name)) found.add(name.replace(/\s+/g, ''));
+  }
+
+  // 2. 붙여쓴 병원명: 강남스마일치과, ABC덴탈 등
+  for (const m of text.matchAll(/[가-힣a-zA-Z0-9]{2,12}(?:치과|의원|병원|클리닉|덴탈센터|덴탈)/g)) {
+    const name = m[0];
+    if (name.length >= 4 && name.length <= 20) found.add(name);
+  }
+
+  // 3. 목록형 항목: "1. 강남스마일치과", "- 연세치과" 등
+  for (const line of text.split('\n')) {
+    const listMatch = line.match(/^\s*(?:\d+[.)]\s*|[-•*]\s*)(.{3,40})/);
+    if (!listMatch) continue;
+    for (const m of listMatch[1].matchAll(/[가-힣a-zA-Z0-9\s]{2,15}(?:치과|의원|병원|클리닉|덴탈)/g)) {
+      const name = m[0].replace(/\s+/g, '');
+      if (name.length >= 4 && name.length <= 20) found.add(name);
+    }
+  }
+
+  return [...found].filter(n => n.length >= 3 && n.length <= 20);
 }
 
 async function queryGemini(prompt: string, clinicName: string): Promise<QueryResult> {
