@@ -26,7 +26,7 @@ export default function Home() {
   const [scanSaved, setScanSaved] = useState(false);
 
   useEffect(() => {
-    setClinics(getClinics());
+    getClinics().then(setClinics);
   }, []);
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export default function Home() {
     }
   }, [result]);
 
-  const refreshClinics = () => setClinics(getClinics());
+  const refreshClinics = () => { getClinics().then(setClinics); };
 
   const handleInputNext = (input: V3SearchInput) => {
     setSearchInput(input);
@@ -114,17 +114,25 @@ export default function Home() {
     setStep('prompts');
   };
 
-  const handleViewScan = (scan: SavedScan) => {
+  const handleViewScan = (scan: SavedScan, clinic: ClinicRecord) => {
     setResult(savedScanToResult(scan));
-    setHistory(loadHistory(scan.input.clinicFullName));
+    const h: HistoryRecord[] = [...clinic.scans].reverse().slice(-30).map(s => ({
+      scanDate: s.scanDate,
+      clinicFullName: s.input.clinicFullName,
+      clinicShortName: s.input.clinicShortName,
+      chatgptSov: s.summary.chatgpt.sov,
+      geminiSov: s.summary.gemini.sov,
+      overallSov: s.summary.overall.sov,
+    }));
+    setHistory(h);
     setIsFromSaved(true);
     setScanSaved(false);
     setStep('results');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!result) return;
-    saveClinicScan(result);
+    await saveClinicScan(result);
     setScanSaved(true);
     refreshClinics();
   };
@@ -263,7 +271,7 @@ export default function Home() {
                     className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all ${
                       scanSaved
                         ? 'bg-[#006400]/20 text-[#00a000] border border-[#006400]/40 cursor-default'
-                        : 'bg-gradient-to-r from-[#006400] to-black text-white hover:shadow-[0_0_20px_rgba(0,100,0,0.4)] hover:scale-[1.01] active:scale-95'
+                        : 'bg-[#006400] text-white hover:shadow-[0_0_20px_rgba(0,100,0,0.4)] hover:scale-[1.01] active:scale-95'
                     }`}
                   >
                     {scanSaved ? <><Check className="w-4 h-4" /> 저장됨</> : <><Save className="w-4 h-4" /> 치과 저장</>}

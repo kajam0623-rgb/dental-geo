@@ -17,7 +17,7 @@ function fmtDate(iso: string) {
 interface Props {
   clinics: ClinicRecord[];
   onNewAnalysis: () => void;
-  onViewScan: (scan: SavedScan) => void;
+  onViewScan: (scan: SavedScan, clinic: ClinicRecord) => void;
   onRescan: (scan: SavedScan) => void;
   onNewPromptScan: (scan: SavedScan) => void;
   onRefresh: () => void;
@@ -28,16 +28,16 @@ export default function ClinicList({ clinics, onNewAnalysis, onViewScan, onResca
 
   const clinic = clinics.find(c => c.clinicFullName === selected);
 
-  const handleDeleteClinic = (name: string) => {
+  const handleDeleteClinic = async (name: string) => {
     if (!confirm(`"${name}" 치과의 모든 데이터를 삭제할까요?`)) return;
-    deleteClinic(name);
+    await deleteClinic(name);
     setSelected(null);
     onRefresh();
   };
 
-  const handleDeleteScan = (clinicName: string, scanId: string) => {
+  const handleDeleteScan = async (clinicName: string, scanId: string) => {
     if (!confirm('이 스캔 결과를 삭제할까요?')) return;
-    deleteScan(clinicName, scanId);
+    await deleteScan(clinicName, scanId);
     onRefresh();
   };
 
@@ -59,7 +59,7 @@ export default function ClinicList({ clinics, onNewAnalysis, onViewScan, onResca
           <div className="flex flex-wrap gap-3">
             <button
               onClick={() => onRescan(clinic.scans[0])}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#006400] to-black text-white text-sm font-bold hover:shadow-[0_0_16px_rgba(0,100,0,0.4)] transition"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#006400] text-white text-sm font-bold hover:shadow-[0_0_16px_rgba(0,100,0,0.4)] transition"
             >
               <RotateCcw className="w-4 h-4" /> 같은 프롬프트로 재스캔
             </button>
@@ -95,7 +95,7 @@ export default function ClinicList({ clinics, onNewAnalysis, onViewScan, onResca
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
-                  onClick={() => onViewScan(scan)}
+                  onClick={() => onViewScan(scan, clinic)}
                   className="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white text-xs font-semibold transition flex items-center gap-1"
                 >
                   보기 <ChevronRight className="w-3.5 h-3.5" />
@@ -124,7 +124,7 @@ export default function ClinicList({ clinics, onNewAnalysis, onViewScan, onResca
         </div>
         <button
           onClick={onNewAnalysis}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#006400] to-black text-white font-bold text-sm hover:shadow-[0_0_20px_rgba(0,100,0,0.5)] hover:scale-[1.01] active:scale-95 transition-all"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#006400] text-white font-bold text-sm hover:shadow-[0_0_20px_rgba(0,100,0,0.5)] hover:scale-[1.01] active:scale-95 transition-all"
         >
           <Plus className="w-4 h-4" /> 새 분석 시작
         </button>

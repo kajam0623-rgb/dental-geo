@@ -13,6 +13,7 @@
     "@amplitude/analytics-browser": "^2.39.0",
     "@amplitude/unified": "^1.0.16",
     "@google/generative-ai": "latest",
+    "@vercel/kv": "^3.0.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
     "html-to-image": "^1.11.13",
