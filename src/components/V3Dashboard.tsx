@@ -91,10 +91,11 @@ function SummaryCards({ data }: { data: V3AnalysisResult }) {
 // ─── Bar Chart ──────────────────────────────────────────────────
 
 function SovBarChart({ data }: { data: V3AnalysisResult }) {
-  const chartData = data.promptResults.map(r => ({
-    name: (r.prompt.displayText ?? r.prompt.text).slice(0, 20) + '…',
+  const chartData = data.promptResults.map((r, i) => ({
+    name: `${i + 1}`,
     ChatGPT: r.chatgpt.total > 0 ? Math.round((r.chatgpt.mentioned / r.chatgpt.total) * 100) : 0,
     Gemini: r.gemini.total > 0 ? Math.round((r.gemini.mentioned / r.gemini.total) * 100) : 0,
+    fullText: r.prompt.displayText ?? r.prompt.text,
     category: r.prompt.category,
   }));
 
@@ -104,14 +105,18 @@ function SovBarChart({ data }: { data: V3AnalysisResult }) {
         <h3 className="font-bold text-white">프롬프트별 노출율 (ChatGPT vs Gemini)</h3>
         <p className="text-xs text-slate-500">{formatDate(data.scanDate)} 기준</p>
       </div>
-      <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 60 }}>
+      <ResponsiveContainer width="100%" height={220}>
+        <BarChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-          <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 10 }} angle={-30} textAnchor="end" interval={0} />
+          <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 12 }} />
           <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} domain={[0, 100]} unit="%" />
           <Tooltip
             contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: 12 }}
-            labelStyle={{ color: '#e2e8f0', fontWeight: 'bold', marginBottom: 4 }}
+            labelFormatter={(label) => {
+              const item = chartData.find(d => d.name === label);
+              return item ? `${label}. ${item.fullText}` : label;
+            }}
+            labelStyle={{ color: '#e2e8f0', fontWeight: 'bold', marginBottom: 4, maxWidth: 280, whiteSpace: 'normal' }}
             formatter={(v: unknown) => [`${v}%`]}
           />
           <Legend wrapperStyle={{ color: '#94a3b8', paddingTop: 8 }} />
@@ -119,6 +124,19 @@ function SovBarChart({ data }: { data: V3AnalysisResult }) {
           <Bar dataKey="Gemini" fill="#A78BFA" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
+
+      <div className="space-y-2 pt-2 border-t border-white/5">
+        {chartData.map((d, i) => (
+          <div key={i} className="flex items-start gap-3">
+            <span className="flex-shrink-0 w-6 h-6 rounded-md bg-slate-700 text-slate-300 text-xs font-bold flex items-center justify-center mt-0.5">
+              {i + 1}
+            </span>
+            <div className="flex-1 px-3 py-2 bg-slate-900/50 border border-white/5 rounded-lg">
+              <p className="text-xs text-slate-300 leading-relaxed">{d.fullText}</p>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

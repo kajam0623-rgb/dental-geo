@@ -11,7 +11,7 @@ const CATEGORY_COLORS: Record<PromptCategory, string> = {
   '추천형': 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
 };
 
-const COUNT_OPTIONS = [5, 10] as const;
+const COUNT_OPTIONS = [3, 5, 10] as const;
 
 interface PromptSelectorProps {
   prompts: PromptItem[];
@@ -26,8 +26,8 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [newPrompt, setNewPrompt] = useState('');
-  const [chatgptCount, setChatgptCount] = useState<5 | 10>(5);
-  const [geminiCount, setGeminiCount] = useState<5 | 10>(5);
+  const [chatgptCount, setChatgptCount] = useState<3 | 5 | 10>(5);
+  const [geminiCount, setGeminiCount] = useState<3 | 5 | 10>(5);
 
   const toggle = (id: string) => {
     setSelected(prev => {
