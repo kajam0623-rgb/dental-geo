@@ -1,26 +1,34 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Activity, Sparkles, MapPin, Search as SearchIcon, ChevronLeft } from 'lucide-react';
+import { Activity, Sparkles, MapPin, Search as SearchIcon, ChevronLeft, Save, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SearchForm from '@/components/SearchForm';
 import PromptSelector from '@/components/PromptSelector';
 import V3Dashboard from '@/components/V3Dashboard';
+import ClinicList from '@/components/ClinicList';
 import { generatePromptsV3 } from '@/utils/promptGenerator';
 import { loadHistory, saveHistory } from '@/utils/historyStorage';
-import type { V3SearchInput, ScanSettings, PromptItem, V3AnalysisResult, HistoryRecord } from '@/types/v3';
+import { getClinics, saveClinicScan, savedScanToResult } from '@/utils/clinicStorage';
+import type { V3SearchInput, ScanSettings, PromptItem, V3AnalysisResult, HistoryRecord, ClinicRecord, SavedScan } from '@/types/v3';
 
-type Step = 'input' | 'prompts' | 'loading' | 'results';
+type Step = 'home' | 'input' | 'prompts' | 'loading' | 'results';
 
 export default function Home() {
-  const [step, setStep] = useState<Step>('input');
+  const [step, setStep] = useState<Step>('home');
   const [searchInput, setSearchInput] = useState<V3SearchInput | null>(null);
   const [generatedPrompts, setGeneratedPrompts] = useState<PromptItem[]>([]);
   const [result, setResult] = useState<V3AnalysisResult | null>(null);
   const [history, setHistory] = useState<HistoryRecord[]>([]);
   const [loadingMsg, setLoadingMsg] = useState('AI 엔진 분석 중...');
+  const [clinics, setClinics] = useState<ClinicRecord[]>([]);
+  const [isFromSaved, setIsFromSaved] = useState(false);
+  const [scanSaved, setScanSaved] = useState(false);
 
-  // Load history when result arrives
+  useEffect(() => {
+    setClinics(getClinics());
+  }, []);
+
   useEffect(() => {
     if (result) {
       const h = loadHistory(result.input.clinicFullName);
@@ -36,14 +44,23 @@ export default function Home() {
     }
   }, [result]);
 
+  const refreshClinics = () => setClinics(getClinics());
+
   const handleInputNext = (input: V3SearchInput) => {
     setSearchInput(input);
     setGeneratedPrompts(generatePromptsV3(input.regions, input.treatments));
     setStep('prompts');
   };
 
-  const handleScanStart = async (selected: PromptItem[], settings: ScanSettings) => {
-    if (!searchInput) return;
+  const runScan = async (
+    selected: PromptItem[],
+    settings: ScanSettings,
+    inputOverride?: V3SearchInput,
+  ) => {
+    const inputToUse = inputOverride ?? searchInput;
+    if (!inputToUse) return;
+    setIsFromSaved(false);
+    setScanSaved(false);
     setStep('loading');
 
     const msgs = [
@@ -63,7 +80,7 @@ export default function Home() {
       const res = await fetch('/api/analyze-v3', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: searchInput, selectedPrompts: selected, settings }),
+        body: JSON.stringify({ input: inputToUse, selectedPrompts: selected, settings }),
       });
       const json = await res.json();
       if (json.success) {
@@ -82,24 +99,63 @@ export default function Home() {
     }
   };
 
+  const handleScanStart = (selected: PromptItem[], settings: ScanSettings) => {
+    runScan(selected, settings);
+  };
+
+  const handleRescan = (scan: SavedScan) => {
+    setSearchInput(scan.input);
+    runScan(scan.promptResults.map(r => r.prompt), scan.settings, scan.input);
+  };
+
+  const handleNewPromptScan = (scan: SavedScan) => {
+    setSearchInput(scan.input);
+    setGeneratedPrompts(generatePromptsV3(scan.input.regions, scan.input.treatments));
+    setStep('prompts');
+  };
+
+  const handleViewScan = (scan: SavedScan) => {
+    setResult(savedScanToResult(scan));
+    setHistory(loadHistory(scan.input.clinicFullName));
+    setIsFromSaved(true);
+    setScanSaved(false);
+    setStep('results');
+  };
+
+  const handleSave = () => {
+    if (!result) return;
+    saveClinicScan(result);
+    setScanSaved(true);
+    refreshClinics();
+  };
+
   const reset = () => {
-    setStep('input');
+    setStep('home');
     setSearchInput(null);
     setGeneratedPrompts([]);
     setResult(null);
+    setIsFromSaved(false);
+    setScanSaved(false);
+    refreshClinics();
+  };
+
+  const goBack = () => {
+    if (step === 'input') { setStep('home'); return; }
+    if (step === 'prompts') { setStep('input'); return; }
+    if (step === 'results') { setStep('home'); return; }
+    setStep('home');
   };
 
   return (
     <div className="min-h-screen bg-slate-950 font-[family-name:var(--font-geist-sans)] pb-32 text-slate-100 overflow-hidden relative">
-      {/* Background */}
       <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#006400]/30 blur-[150px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-black/60 blur-[150px] pointer-events-none" />
 
       {/* Header */}
       <header className="border-b border-white/10 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          {step !== 'input' && (
-            <button onClick={reset} className="p-2 rounded-xl hover:bg-white/10 transition text-slate-400 hover:text-white mr-1">
+          {step !== 'home' && (
+            <button onClick={goBack} className="p-2 rounded-xl hover:bg-white/10 transition text-slate-400 hover:text-white mr-1">
               <ChevronLeft className="w-5 h-5" />
             </button>
           )}
@@ -117,13 +173,13 @@ export default function Home() {
       </header>
 
       {/* Step Indicator */}
-      {step !== 'results' && (
+      {(['input', 'prompts', 'loading'] as Step[]).includes(step) && (
         <div className="flex items-center justify-center gap-2 pt-8 pb-2">
           {(['input', 'prompts', 'loading'] as const).map((s, i) => (
             <div key={s} className="flex items-center gap-2">
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                 step === s ? 'bg-[#006400] text-white' :
-                ['loading', 'results'].includes(step) && i < ['input','prompts','loading'].indexOf(step)
+                step === 'loading' && i < (['input', 'prompts', 'loading'] as const).indexOf(step)
                   ? 'bg-[#006400]/30 text-[#00a000]' : 'bg-slate-800 text-slate-500'
               }`}>{i + 1}</div>
               {i < 2 && <div className="w-8 h-px bg-slate-700" />}
@@ -135,7 +191,21 @@ export default function Home() {
       <main className="max-w-5xl mx-auto px-6 pt-10 pb-12 flex flex-col items-center relative z-10">
         <AnimatePresence mode="wait">
 
-          {/* Step 1: Input */}
+          {/* Home */}
+          {step === 'home' && (
+            <motion.div key="home" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full">
+              <ClinicList
+                clinics={clinics}
+                onNewAnalysis={() => setStep('input')}
+                onViewScan={handleViewScan}
+                onRescan={handleRescan}
+                onNewPromptScan={handleNewPromptScan}
+                onRefresh={refreshClinics}
+              />
+            </motion.div>
+          )}
+
+          {/* Input */}
           {step === 'input' && (
             <motion.div key="input" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full space-y-10">
               <div className="text-center space-y-4">
@@ -153,17 +223,14 @@ export default function Home() {
             </motion.div>
           )}
 
-          {/* Step 2: Prompt Selection */}
+          {/* Prompts */}
           {step === 'prompts' && (
             <motion.div key="prompts" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full">
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-bold text-white">프롬프트 설정</h2>
                 <p className="text-slate-400 text-sm mt-1">{searchInput?.clinicFullName} · {searchInput?.regions.join(', ')}</p>
               </div>
-              <PromptSelector
-                prompts={generatedPrompts}
-                onStart={handleScanStart}
-              />
+              <PromptSelector prompts={generatedPrompts} onStart={handleScanStart} />
             </motion.div>
           )}
 
@@ -188,9 +255,22 @@ export default function Home() {
           {step === 'results' && result && (
             <motion.div key="results" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
               <V3Dashboard data={result} history={history} />
-              <div className="mt-8 flex justify-center">
+              <div className="mt-8 flex justify-center gap-4 flex-wrap">
+                {!isFromSaved && (
+                  <button
+                    onClick={handleSave}
+                    disabled={scanSaved}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all ${
+                      scanSaved
+                        ? 'bg-[#006400]/20 text-[#00a000] border border-[#006400]/40 cursor-default'
+                        : 'bg-gradient-to-r from-[#006400] to-black text-white hover:shadow-[0_0_20px_rgba(0,100,0,0.4)] hover:scale-[1.01] active:scale-95'
+                    }`}
+                  >
+                    {scanSaved ? <><Check className="w-4 h-4" /> 저장됨</> : <><Save className="w-4 h-4" /> 치과 저장</>}
+                  </button>
+                )}
                 <button onClick={reset} className="px-8 py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition font-medium">
-                  새로운 분석 시작
+                  {isFromSaved ? '목록으로' : '새로운 분석 시작'}
                 </button>
               </div>
             </motion.div>

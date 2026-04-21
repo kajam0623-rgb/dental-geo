@@ -54,6 +54,32 @@ export interface V3AnalysisResult {
   competitorRankings: CompetitorRank[];
 }
 
+export interface SavedScan {
+  id: string;
+  scanDate: string;
+  input: V3SearchInput;
+  settings: ScanSettings;
+  promptResults: Array<{
+    prompt: PromptItem;
+    chatgpt: { mentioned: number; total: number };
+    gemini: { mentioned: number; total: number };
+  }>;
+  summary: {
+    chatgpt: { sov: number; mentions: number; total: number };
+    gemini: { sov: number; mentions: number; total: number };
+    overall: { sov: number };
+    agreementRate: number;
+  };
+  competitorRankings: CompetitorRank[];
+}
+
+export interface ClinicRecord {
+  clinicFullName: string;
+  clinicShortName: string;
+  scans: SavedScan[];
+  lastUpdated: string;
+}
+
 export interface HistoryRecord {
   scanDate: string;
   clinicFullName: string;
