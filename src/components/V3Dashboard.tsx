@@ -368,8 +368,8 @@ function analyzeWeakPrompt(
   regions: string[],
   treatments: string[],
 ): WeakAnalysis {
-  const r = regions[0] ?? '';
-  const t = treatments[0] ?? '';
+  const r = regions.find(v => displayText.includes(v)) ?? regions[0] ?? '';
+  const t = treatments.find(v => displayText.includes(v)) ?? treatments[0] ?? '';
   const hasPrice  = /가격|비용|합리|저렴|얼마/.test(displayText);
   const hasNight  = /야간|저녁|직장인|퇴근/.test(displayText);
   const hasPost   = /후|다음|지나/.test(displayText) && /통증|관리|주의/.test(displayText);
