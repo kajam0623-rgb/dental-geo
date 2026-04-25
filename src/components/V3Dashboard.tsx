@@ -15,9 +15,12 @@ function formatDate(iso: string) {
   return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
 }
 
+function sovTextColor(sov: number) {
+  return sov >= 60 ? 'text-[#006241]' : sov >= 30 ? 'text-amber-700' : 'text-[#c82014]';
+}
+
 function SovBadge({ value }: { value: number }) {
-  const color = value >= 60 ? 'text-[#00a000]' : value >= 30 ? 'text-amber-400' : 'text-rose-400';
-  return <span className={`text-2xl font-extrabold ${color}`}>{value}%</span>;
+  return <span className={`text-2xl font-extrabold ${sovTextColor(value)}`}>{value}%</span>;
 }
 
 // ─── SOV Donut Gauge ────────────────────────────────────────────
@@ -29,37 +32,40 @@ function SovGauge({ value, label, color }: { value: number; label: string; color
   return (
     <div className="flex flex-col items-center gap-1">
       <svg width="130" height="130" viewBox="0 0 130 130">
-        <circle cx="65" cy="65" r={r} fill="none" stroke="#1e293b" strokeWidth="13" />
+        <circle cx="65" cy="65" r={r} fill="none" stroke="#e8e8e8" strokeWidth="13" />
         <circle cx="65" cy="65" r={r} fill="none" stroke={color} strokeWidth="13"
           strokeDasharray={`${filled} ${circ}`} strokeLinecap="round"
           transform="rotate(-90 65 65)" style={{ transition: 'stroke-dasharray 0.8s ease' }} />
-        <text x="65" y="60" textAnchor="middle" fill="white" fontSize="22" fontWeight="800">{value}%</text>
-        <text x="65" y="78" textAnchor="middle" fill="#94a3b8" fontSize="10">SOV</text>
+        <text x="65" y="60" textAnchor="middle" fill="rgba(0,0,0,0.87)" fontSize="22" fontWeight="800">{value}%</text>
+        <text x="65" y="78" textAnchor="middle" fill="rgba(0,0,0,0.55)" fontSize="10">SOV</text>
       </svg>
-      <p className="text-xs font-semibold text-slate-400">{label}</p>
+      <p className="text-xs font-semibold text-black/[0.55]">{label}</p>
     </div>
   );
 }
 
 function GaugeSection({ data }: { data: V3AnalysisResult }) {
-  const overallColor = data.summary.overall.sov >= 60 ? '#10b981' : data.summary.overall.sov >= 30 ? '#f59e0b' : '#f43f5e';
-  const gptColor = data.summary.chatgpt.sov >= 60 ? '#10b981' : data.summary.chatgpt.sov >= 30 ? '#f59e0b' : '#f43f5e';
-  const gemColor = data.summary.gemini.sov >= 60 ? '#10b981' : data.summary.gemini.sov >= 30 ? '#f59e0b' : '#f43f5e';
+  const overallColor = data.summary.overall.sov >= 60 ? '#006241' : data.summary.overall.sov >= 30 ? '#b45309' : '#c82014';
+  const gptColor = data.summary.chatgpt.sov >= 60 ? '#006241' : data.summary.chatgpt.sov >= 30 ? '#b45309' : '#c82014';
+  const gemColor = data.summary.gemini.sov >= 60 ? '#006241' : data.summary.gemini.sov >= 30 ? '#b45309' : '#c82014';
   return (
-    <div className="bg-slate-800/60 border border-white/10 rounded-2xl p-6">
+    <div
+      className="bg-white rounded-[12px] p-6"
+      style={{ boxShadow: '0 0 0.5px rgba(0,0,0,0.14), 0 1px 1px rgba(0,0,0,0.24)' }}
+    >
       <div className="flex flex-col sm:flex-row items-center justify-around gap-6">
         <SovGauge value={data.summary.overall.sov} label="종합" color={overallColor} />
-        <div className="hidden sm:block w-px h-28 bg-white/10" />
+        <div className="hidden sm:block w-px h-28 bg-black/10" />
         <SovGauge value={data.summary.chatgpt.sov} label="ChatGPT" color={gptColor} />
         <SovGauge value={data.summary.gemini.sov} label="Gemini" color={gemColor} />
-        <div className="hidden sm:block w-px h-28 bg-white/10" />
+        <div className="hidden sm:block w-px h-28 bg-black/10" />
         <div className="text-center space-y-1">
-          <p className="text-xs text-slate-500">스캔 일시</p>
-          <p className="text-sm font-bold text-white">{formatDate(data.scanDate)}</p>
-          <p className="text-xs text-slate-500 mt-2">총 스캔 횟수</p>
-          <p className="text-sm font-bold text-white">{data.summary.chatgpt.total + data.summary.gemini.total}회</p>
-          <p className="text-xs text-slate-500 mt-2">엔진 일치율</p>
-          <p className="text-sm font-bold text-white">{data.summary.agreementRate}%</p>
+          <p className="text-xs text-black/40">스캔 일시</p>
+          <p className="text-sm font-bold text-black/87">{formatDate(data.scanDate)}</p>
+          <p className="text-xs text-black/40 mt-2">총 스캔 횟수</p>
+          <p className="text-sm font-bold text-black/87">{data.summary.chatgpt.total + data.summary.gemini.total}회</p>
+          <p className="text-xs text-black/40 mt-2">엔진 일치율</p>
+          <p className="text-sm font-bold text-black/87">{data.summary.agreementRate}%</p>
         </div>
       </div>
     </div>
@@ -78,10 +84,14 @@ function SummaryCards({ data }: { data: V3AnalysisResult }) {
         { label: 'Gemini SOV', value: summary.gemini.sov, sub: `${summary.gemini.mentions} / ${summary.gemini.total}회 언급` },
         { label: '엔진 일치율', value: summary.agreementRate, sub: '두 엔진 동의 비율' },
       ].map(c => (
-        <div key={c.label} className="bg-slate-800/60 border border-white/10 rounded-2xl p-4 flex flex-col gap-1">
-          <p className="text-xs text-slate-400 font-medium">{c.label}</p>
+        <div
+          key={c.label}
+          className="bg-white rounded-[12px] p-4 flex flex-col gap-1"
+          style={{ boxShadow: '0 0 0.5px rgba(0,0,0,0.14), 0 1px 1px rgba(0,0,0,0.24)' }}
+        >
+          <p className="text-xs text-black/[0.55] font-medium">{c.label}</p>
           <SovBadge value={c.value} />
-          <p className="text-xs text-slate-500">{c.sub}</p>
+          <p className="text-xs text-black/40">{c.sub}</p>
         </div>
       ))}
     </div>
@@ -100,39 +110,42 @@ function SovBarChart({ data }: { data: V3AnalysisResult }) {
   }));
 
   return (
-    <div className="bg-slate-800/60 border border-white/10 rounded-2xl p-6 space-y-4">
+    <div
+      className="bg-white rounded-[12px] p-6 space-y-4"
+      style={{ boxShadow: '0 0 0.5px rgba(0,0,0,0.14), 0 1px 1px rgba(0,0,0,0.24)' }}
+    >
       <div className="flex items-center justify-between">
-        <h3 className="font-bold text-white">프롬프트별 노출율 (ChatGPT vs Gemini)</h3>
-        <p className="text-xs text-slate-500">{formatDate(data.scanDate)} 기준</p>
+        <h3 className="font-bold text-[#1E3932]" style={{ letterSpacing: '-0.16px' }}>프롬프트별 노출율 (ChatGPT vs Gemini)</h3>
+        <p className="text-xs text-black/40">{formatDate(data.scanDate)} 기준</p>
       </div>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-          <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 12 }} />
-          <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} domain={[0, 100]} unit="%" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+          <XAxis dataKey="name" tick={{ fill: 'rgba(0,0,0,0.55)', fontSize: 12 }} />
+          <YAxis tick={{ fill: 'rgba(0,0,0,0.55)', fontSize: 11 }} domain={[0, 100]} unit="%" />
           <Tooltip
-            contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: 12 }}
+            contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 12 }}
             labelFormatter={(label) => {
               const item = chartData.find(d => d.name === label);
               return item ? `${label}. ${item.fullText}` : label;
             }}
-            labelStyle={{ color: '#e2e8f0', fontWeight: 'bold', marginBottom: 4, maxWidth: 280, whiteSpace: 'normal' }}
+            labelStyle={{ color: 'rgba(0,0,0,0.87)', fontWeight: 'bold', marginBottom: 4, maxWidth: 280, whiteSpace: 'normal' }}
             formatter={(v: unknown) => [`${v}%`]}
           />
-          <Legend wrapperStyle={{ color: '#94a3b8', paddingTop: 8 }} />
-          <Bar dataKey="ChatGPT" fill="#60A5FA" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="Gemini" fill="#A78BFA" radius={[4, 4, 0, 0]} />
+          <Legend wrapperStyle={{ color: 'rgba(0,0,0,0.55)', paddingTop: 8 }} />
+          <Bar dataKey="ChatGPT" fill="#00754A" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="Gemini" fill="#1E3932" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
 
-      <div className="space-y-2 pt-2 border-t border-white/5">
+      <div className="space-y-2 pt-2 border-t border-black/[0.06]">
         {chartData.map((d, i) => (
           <div key={i} className="flex items-start gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-md bg-slate-700 text-slate-300 text-xs font-bold flex items-center justify-center mt-0.5">
+            <span className="flex-shrink-0 w-6 h-6 rounded-md bg-[#edebe9] text-black/[0.55] text-xs font-bold flex items-center justify-center mt-0.5">
               {i + 1}
             </span>
-            <div className="flex-1 px-3 py-2 bg-slate-900/50 border border-white/5 rounded-lg">
-              <p className="text-xs text-slate-300 leading-relaxed">{d.fullText}</p>
+            <div className="flex-1 px-3 py-2 bg-[#f2f0eb] border border-black/[0.06] rounded-lg">
+              <p className="text-xs text-black/75 leading-relaxed">{d.fullText}</p>
             </div>
           </div>
         ))}
@@ -163,31 +176,37 @@ function HistoryLineChart({ history, current }: { history: HistoryRecord[]; curr
 
   if (chartData.length < 2) {
     return (
-      <div className="bg-slate-800/60 border border-white/10 rounded-2xl p-6 flex items-center justify-center h-48">
-        <p className="text-slate-500 text-sm">2회 이상 스캔하면 추이 그래프가 표시됩니다.</p>
+      <div
+        className="bg-white rounded-[12px] p-6 flex items-center justify-center h-48"
+        style={{ boxShadow: '0 0 0.5px rgba(0,0,0,0.14), 0 1px 1px rgba(0,0,0,0.24)' }}
+      >
+        <p className="text-black/[0.55] text-sm">2회 이상 스캔하면 추이 그래프가 표시됩니다.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-slate-800/60 border border-white/10 rounded-2xl p-6 space-y-4">
+    <div
+      className="bg-white rounded-[12px] p-6 space-y-4"
+      style={{ boxShadow: '0 0 0.5px rgba(0,0,0,0.14), 0 1px 1px rgba(0,0,0,0.24)' }}
+    >
       <div className="flex items-center gap-2">
-        <TrendingUp className="w-5 h-5 text-[#00a000]" />
-        <h3 className="font-bold text-white">날짜별 SOV 추이</h3>
+        <TrendingUp className="w-5 h-5 text-[#006241]" />
+        <h3 className="font-bold text-[#1E3932]" style={{ letterSpacing: '-0.16px' }}>날짜별 SOV 추이</h3>
       </div>
       <ResponsiveContainer width="100%" height={220}>
         <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-          <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-          <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} domain={[0, 100]} unit="%" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+          <XAxis dataKey="date" tick={{ fill: 'rgba(0,0,0,0.55)', fontSize: 11 }} />
+          <YAxis tick={{ fill: 'rgba(0,0,0,0.55)', fontSize: 11 }} domain={[0, 100]} unit="%" />
           <Tooltip
-            contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: 12 }}
+            contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 12 }}
             formatter={(v: unknown) => [`${v}%`]}
           />
-          <Legend wrapperStyle={{ color: '#94a3b8' }} />
-          <Line type="monotone" dataKey="ChatGPT" stroke="#60A5FA" strokeWidth={2} dot={{ r: 4 }} />
-          <Line type="monotone" dataKey="Gemini" stroke="#A78BFA" strokeWidth={2} dot={{ r: 4 }} />
-          <Line type="monotone" dataKey="종합" stroke="#4ADE80" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 4 }} />
+          <Legend wrapperStyle={{ color: 'rgba(0,0,0,0.55)' }} />
+          <Line type="monotone" dataKey="ChatGPT" stroke="#00754A" strokeWidth={2} dot={{ r: 4 }} />
+          <Line type="monotone" dataKey="Gemini" stroke="#1E3932" strokeWidth={2} dot={{ r: 4 }} />
+          <Line type="monotone" dataKey="종합" stroke="#b45309" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 4 }} />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -200,33 +219,36 @@ function CompetitorRanking({ data }: { data: V3AnalysisResult }) {
   if (data.competitorRankings.length === 0) return null;
 
   return (
-    <div className="bg-slate-800/60 border border-white/10 rounded-2xl p-6 space-y-4">
+    <div
+      className="bg-white rounded-[12px] p-6 space-y-4"
+      style={{ boxShadow: '0 0 0.5px rgba(0,0,0,0.14), 0 1px 1px rgba(0,0,0,0.24)' }}
+    >
       <div className="flex items-center gap-2">
-        <Trophy className="w-5 h-5 text-amber-400" />
-        <h3 className="font-bold text-white">경쟁사 AI 노출 랭킹</h3>
-        <span className="text-xs text-slate-500 ml-auto">AI 대화에서 가장 많이 언급된 브랜드</span>
+        <Trophy className="w-5 h-5 text-amber-600" />
+        <h3 className="font-bold text-[#1E3932]" style={{ letterSpacing: '-0.16px' }}>경쟁사 AI 노출 랭킹</h3>
+        <span className="text-xs text-black/40 ml-auto">AI 대화에서 가장 많이 언급된 브랜드</span>
       </div>
       <div className="space-y-2">
         {data.competitorRankings.map((c, i) => (
-          <div key={c.name} className={`flex items-center gap-3 rounded-xl px-2 py-1 ${c.isTarget ? 'bg-amber-500/10 border border-amber-500/30' : ''}`}>
+          <div key={c.name} className={`flex items-center gap-3 rounded-[8px] px-2 py-1 ${c.isTarget ? 'bg-amber-50 border border-amber-200' : ''}`}>
             <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
-              i === 0 ? 'bg-amber-500/20 text-amber-400' :
-              i === 1 ? 'bg-slate-500/20 text-slate-300' :
-              i === 2 ? 'bg-orange-700/20 text-orange-400' : 'bg-slate-800 text-slate-500'
+              i === 0 ? 'bg-amber-50 text-amber-600' :
+              i === 1 ? 'bg-[#edebe9] text-black/60' :
+              i === 2 ? 'bg-orange-50 text-orange-700' : 'bg-[#f2f0eb] text-black/40'
             }`}>{i + 1}</span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className={`text-sm font-medium truncate ${c.isTarget ? 'text-amber-300 font-bold' : 'text-slate-200'}`}>{c.name}</span>
+                  <span className={`text-sm font-medium truncate ${c.isTarget ? 'text-amber-700 font-bold' : 'text-black/87'}`}>{c.name}</span>
                   {c.isTarget && (
-                    <span className="flex-shrink-0 text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-bold">우리 병원</span>
+                    <span className="flex-shrink-0 text-xs bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full font-bold">우리 병원</span>
                   )}
                 </div>
-                <span className="text-sm font-bold text-slate-300 ml-2">{c.percentage}%</span>
+                <span className="text-sm font-bold text-black/75 ml-2">{c.percentage}%</span>
               </div>
-              <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-[#e8e8e8] rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all ${c.isTarget ? 'bg-amber-400' : 'bg-[#006400]'}`}
+                  className={`h-full rounded-full transition-all ${c.isTarget ? 'bg-amber-500' : 'bg-[#00754A]'}`}
                   style={{ width: `${Math.min(c.percentage * 2, 100)}%` }}
                 />
               </div>
@@ -245,18 +267,21 @@ function PromptOverviewTable({ data }: { data: V3AnalysisResult }) {
     total > 0 ? Math.round((mentioned / total) * 100) : 0;
 
   const cell = (p: number) => {
-    const bg = p >= 50 ? 'bg-emerald-500/20 text-emerald-300' : p > 0 ? 'bg-amber-500/20 text-amber-300' : 'bg-rose-500/15 text-rose-400';
+    const bg = p >= 50 ? 'bg-[#d4e9e2] text-[#006241]' : p > 0 ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-[#c82014]';
     const label = p >= 50 ? '●' : p > 0 ? '△' : '✕';
     return { bg, label, p };
   };
 
   return (
-    <div className="bg-slate-800/60 border border-white/10 rounded-2xl p-6 space-y-4">
-      <h3 className="font-bold text-white">전체 프롬프트 결과 한눈에 보기</h3>
+    <div
+      className="bg-white rounded-[12px] p-6 space-y-4"
+      style={{ boxShadow: '0 0 0.5px rgba(0,0,0,0.14), 0 1px 1px rgba(0,0,0,0.24)' }}
+    >
+      <h3 className="font-bold text-[#1E3932]" style={{ letterSpacing: '-0.16px' }}>전체 프롬프트 결과 한눈에 보기</h3>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-white/10 text-xs text-slate-400 font-semibold">
+            <tr className="border-b border-black/[0.08] text-xs text-black/[0.55] font-semibold">
               <th className="text-left pb-3 pr-4 w-8">#</th>
               <th className="text-left pb-3 pr-4">프롬프트</th>
               <th className="text-left pb-3 pr-3 w-20">유형</th>
@@ -265,26 +290,26 @@ function PromptOverviewTable({ data }: { data: V3AnalysisResult }) {
               <th className="text-center pb-3 pl-3 w-20">평균</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5">
+          <tbody className="divide-y divide-black/[0.05]">
             {data.promptResults.map((r, i) => {
               const gpt = cell(pct(r.chatgpt.mentioned, r.chatgpt.total));
               const gem = cell(pct(r.gemini.mentioned, r.gemini.total));
               const avg = Math.round((gpt.p + gem.p) / 2);
               const avgCell = cell(avg);
               return (
-                <tr key={r.prompt.id} className="hover:bg-white/[0.02] transition">
-                  <td className="py-3 pr-4 text-slate-500 text-xs">{i + 1}</td>
+                <tr key={r.prompt.id} className="hover:bg-black/[0.02] transition">
+                  <td className="py-3 pr-4 text-black/40 text-xs">{i + 1}</td>
                   <td className="py-3 pr-4">
-                    <p className="text-slate-300 text-xs leading-snug line-clamp-2">
+                    <p className="text-black/75 text-xs leading-snug line-clamp-2">
                       {r.prompt.displayText ?? r.prompt.text}
                     </p>
                   </td>
                   <td className="py-3 pr-3">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      r.prompt.category === '지역형' ? 'bg-[#006400]/15 text-[#00a000]' :
-                      r.prompt.category === '증상형' ? 'bg-rose-500/15 text-rose-300' :
-                      r.prompt.category === '비교형' ? 'bg-amber-500/15 text-amber-300' :
-                      'bg-emerald-500/15 text-emerald-300'
+                      r.prompt.category === '지역형' ? 'bg-[#d4e9e2] text-[#006241]' :
+                      r.prompt.category === '증상형' ? 'bg-rose-50 text-rose-700' :
+                      r.prompt.category === '비교형' ? 'bg-amber-50 text-amber-700' :
+                      'bg-emerald-50 text-emerald-700'
                     }`}>{r.prompt.category}</span>
                   </td>
                   <td className="py-3 px-3 text-center">
@@ -298,7 +323,7 @@ function PromptOverviewTable({ data }: { data: V3AnalysisResult }) {
                     </span>
                   </td>
                   <td className="py-3 pl-3 text-center">
-                    <span className={`text-xs font-extrabold ${avgCell.p >= 50 ? 'text-[#00a000]' : avgCell.p > 0 ? 'text-amber-400' : 'text-rose-400'}`}>
+                    <span className={`text-xs font-extrabold ${avgCell.p >= 50 ? 'text-[#006241]' : avgCell.p > 0 ? 'text-amber-700' : 'text-[#c82014]'}`}>
                       {avg}%
                     </span>
                   </td>
@@ -308,10 +333,10 @@ function PromptOverviewTable({ data }: { data: V3AnalysisResult }) {
           </tbody>
         </table>
       </div>
-      <div className="flex items-center gap-4 pt-2 text-xs text-slate-500">
-        <span className="flex items-center gap-1"><span className="text-[#00a000]">●</span> 50% 이상</span>
-        <span className="flex items-center gap-1"><span className="text-amber-400">△</span> 1~49%</span>
-        <span className="flex items-center gap-1"><span className="text-rose-400">✕</span> 0%</span>
+      <div className="flex items-center gap-4 pt-2 text-xs text-black/40">
+        <span className="flex items-center gap-1"><span className="text-[#006241]">●</span> 50% 이상</span>
+        <span className="flex items-center gap-1"><span className="text-amber-700">△</span> 1~49%</span>
+        <span className="flex items-center gap-1"><span className="text-[#c82014]">✕</span> 0%</span>
       </div>
     </div>
   );
@@ -323,43 +348,46 @@ function PromptDetailTable({ data }: { data: V3AnalysisResult }) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   return (
-    <div className="bg-slate-800/60 border border-white/10 rounded-2xl p-6 space-y-3">
-      <h3 className="font-bold text-white">프롬프트별 상세 결과</h3>
+    <div
+      className="bg-white rounded-[12px] p-6 space-y-3"
+      style={{ boxShadow: '0 0 0.5px rgba(0,0,0,0.14), 0 1px 1px rgba(0,0,0,0.24)' }}
+    >
+      <h3 className="font-bold text-[#1E3932]" style={{ letterSpacing: '-0.16px' }}>프롬프트별 상세 결과</h3>
       {data.promptResults.map(r => {
         const gptPct = r.chatgpt.total > 0 ? Math.round((r.chatgpt.mentioned / r.chatgpt.total) * 100) : 0;
         const gemPct = r.gemini.total > 0 ? Math.round((r.gemini.mentioned / r.gemini.total) * 100) : 0;
         const isOpen = expanded === r.prompt.id;
 
         return (
-          <div key={r.prompt.id} className="border border-white/5 rounded-xl overflow-hidden">
+          <div key={r.prompt.id} className="border border-black/[0.08] rounded-[12px] overflow-hidden">
             <button
-              className="w-full flex items-center gap-3 p-4 hover:bg-slate-700/30 transition text-left"
+              className="w-full flex items-center gap-3 p-4 hover:bg-[#f2f0eb] transition text-left active:scale-[0.99]"
               onClick={() => setExpanded(isOpen ? null : r.prompt.id)}
             >
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-slate-300 truncate">{(r.prompt.displayText ?? r.prompt.text).slice(0, 60)}…</p>
+                <p className="text-sm text-black/75 truncate">{(r.prompt.displayText ?? r.prompt.text).slice(0, 60)}…</p>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${gptPct > 0 ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-500'}`}>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${gptPct > 0 ? 'bg-[#d4e9e2] text-[#006241]' : 'bg-[#edebe9] text-black/40'}`}>
                   GPT {gptPct}%
                 </span>
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${gemPct > 0 ? 'bg-black/30 text-slate-300' : 'bg-slate-700 text-slate-500'}`}>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${gemPct > 0 ? 'bg-[#edebe9] text-black/75' : 'bg-[#edebe9] text-black/40'}`}>
                   GEM {gemPct}%
                 </span>
-                {isOpen ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
+                {isOpen ? <ChevronUp className="w-4 h-4 text-black/40" /> : <ChevronDown className="w-4 h-4 text-black/40" />}
               </div>
             </button>
             {isOpen && (
-              <div className="px-4 pb-4 grid md:grid-cols-2 gap-3">
+              <div className="px-4 pb-4 grid md:grid-cols-2 gap-3 bg-[#f2f0eb]">
                 {[
-                  { label: 'ChatGPT', texts: r.chatgpt.responseTexts, color: 'border-green-500/20' },
-                  { label: 'Gemini', texts: r.gemini.responseTexts, color: 'border-black/30' },
+                  { label: 'ChatGPT', texts: r.chatgpt.responseTexts, color: 'border-[#00754A]/20' },
+                  { label: 'Gemini', texts: r.gemini.responseTexts, color: 'border-[#1E3932]/20' },
                 ].map(e => (
-                  <div key={e.label} className={`border ${e.color} rounded-xl p-3 space-y-2`}>
-                    <p className="text-xs font-bold text-slate-400">{e.label} 응답 ({e.texts.length}회)</p>
+                  <div key={e.label} className={`border ${e.color} rounded-[12px] p-3 space-y-2 bg-white`}>
+                    <p className="text-xs font-bold text-black/[0.55]">{e.label} 응답 ({e.texts.length}회)</p>
                     <div className="space-y-1">
                       {e.texts.map((t, i) => (
-                        <p key={i} className="text-xs text-slate-400 bg-slate-900/50 rounded-lg p-2 leading-relaxed">{t}</p>
+                        <p key={i} className="text-xs text-black/[0.55] bg-[#f2f0eb] rounded-lg p-2 leading-relaxed">{t}</p>
                       ))}
                     </div>
                   </div>
@@ -458,6 +486,7 @@ function analyzeWeakPrompt(
   };
 
   // 추천형
+  void hasCompare;
   return {
     reason: `AI가 "신뢰할 수 있는 추천" 대상으로 이 병원을 선택하지 않습니다. 원장 전문성·환자 신뢰를 입증할 수 있는 콘텐츠(수상경력, 논문, 후기 누적 등)가 온라인에서 확인이 안 되거나 경쟁 병원에 비해 절대적으로 부족합니다.`,
     blogs: [
@@ -490,20 +519,23 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
   });
 
   return (
-    <div className="bg-slate-800/60 border border-white/10 rounded-2xl p-6 space-y-6">
+    <div
+      className="bg-white rounded-[12px] p-6 space-y-6"
+      style={{ boxShadow: '0 0 0.5px rgba(0,0,0,0.14), 0 1px 1px rgba(0,0,0,0.24)' }}
+    >
       <div className="flex items-center gap-2">
-        <FileText className="w-5 h-5 text-[#00a000]" />
-        <h3 className="font-bold text-white">AI 콘텐츠 전략 보고서</h3>
-        <span className="text-xs text-slate-500 ml-auto">미노출 역분석 + 블로그 제안</span>
+        <FileText className="w-5 h-5 text-[#006241]" />
+        <h3 className="font-bold text-[#1E3932]" style={{ letterSpacing: '-0.16px' }}>AI 콘텐츠 전략 보고서</h3>
+        <span className="text-xs text-black/40 ml-auto">미노출 역분석 + 블로그 제안</span>
       </div>
 
       {weakPrompts.length === 0 ? (
-        <div className="text-center py-6 text-[#00a000] font-semibold text-sm">
+        <div className="text-center py-6 text-[#006241] font-semibold text-sm">
           모든 프롬프트에서 30% 이상 노출 — 우수한 AI 가시성입니다.
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="text-sm font-semibold text-rose-300">
+          <p className="text-sm font-semibold text-[#c82014]">
             노출 부족 프롬프트 ({weakPrompts.length}개) — 클릭하면 원인 분석 + 블로그 제안 확인
           </p>
 
@@ -519,54 +551,50 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
             );
 
             return (
-              <div key={r.prompt.id} className="border border-rose-500/20 rounded-2xl overflow-hidden">
-                {/* Header — clickable */}
+              <div key={r.prompt.id} className="border border-[#c82014]/20 rounded-[12px] overflow-hidden">
                 <button
-                  className="w-full text-left p-4 bg-rose-500/5 hover:bg-rose-500/10 transition space-y-2"
+                  className="w-full text-left p-4 bg-rose-50 hover:bg-rose-100 transition space-y-2 active:scale-[0.99]"
                   onClick={() => setOpenId(isOpen ? null : r.prompt.id)}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm text-slate-200 leading-relaxed flex-1">
+                    <p className="text-sm text-black/87 leading-relaxed flex-1">
                       "{r.prompt.displayText ?? r.prompt.text}"
                     </p>
-                    {isOpen ? <ChevronUp className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" /> : <ChevronDown className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />}
+                    {isOpen ? <ChevronUp className="w-4 h-4 text-black/40 flex-shrink-0 mt-0.5" /> : <ChevronDown className="w-4 h-4 text-black/40 flex-shrink-0 mt-0.5" />}
                   </div>
                   <div className="flex items-center gap-4 text-xs">
-                    <span className="text-slate-500">ChatGPT <span className={`font-bold ${gptPct > 0 ? 'text-amber-400' : 'text-rose-400'}`}>{gptPct}%</span></span>
-                    <span className="text-slate-500">Gemini <span className={`font-bold ${gemPct > 0 ? 'text-amber-400' : 'text-rose-400'}`}>{gemPct}%</span></span>
+                    <span className="text-black/[0.55]">ChatGPT <span className={`font-bold ${gptPct > 0 ? 'text-amber-700' : 'text-[#c82014]'}`}>{gptPct}%</span></span>
+                    <span className="text-black/[0.55]">Gemini <span className={`font-bold ${gemPct > 0 ? 'text-amber-700' : 'text-[#c82014]'}`}>{gemPct}%</span></span>
                     <span className={`px-2 py-0.5 rounded-full border text-xs font-medium ${
-                      r.prompt.category === '지역형' ? 'bg-[#006400]/10 text-[#00a000] border-[#006400]/20' :
-                      r.prompt.category === '증상형' ? 'bg-rose-500/10 text-rose-300 border-rose-500/20' :
-                      r.prompt.category === '비교형' ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' :
-                      'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                      r.prompt.category === '지역형' ? 'bg-[#d4e9e2] text-[#006241] border-[#006241]/20' :
+                      r.prompt.category === '증상형' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                      r.prompt.category === '비교형' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                      'bg-emerald-50 text-emerald-700 border-emerald-200'
                     }`}>{r.prompt.category}</span>
                   </div>
                 </button>
 
-                {/* Expanded analysis */}
                 {isOpen && (
-                  <div className="p-4 space-y-4 bg-slate-900/40">
-                    {/* 원인 분석 */}
+                  <div className="p-4 space-y-4 bg-[#f9f9f9]">
                     <div className="space-y-1.5">
-                      <p className="text-xs font-bold text-rose-300 uppercase tracking-wide">미노출 원인 분석</p>
-                      <p className="text-sm text-slate-300 leading-relaxed bg-rose-500/5 border border-rose-500/10 rounded-xl p-3">
+                      <p className="text-xs font-bold text-[#c82014] uppercase tracking-wide">미노출 원인 분석</p>
+                      <p className="text-sm text-black/75 leading-relaxed bg-rose-50 border border-rose-100 rounded-[12px] p-3">
                         {analysis.reason}
                       </p>
                     </div>
 
-                    {/* 블로그 제안 */}
                     <div className="space-y-2">
-                      <p className="text-xs font-bold text-[#00a000] uppercase tracking-wide">추천 블로그 콘텐츠</p>
+                      <p className="text-xs font-bold text-[#006241] uppercase tracking-wide">추천 블로그 콘텐츠</p>
                       {analysis.blogs.map((b, i) => (
-                        <div key={i} className="bg-black/20 border border-[#006400]/15 rounded-xl p-3 space-y-1.5">
+                        <div key={i} className="bg-white border border-[#00754A]/15 rounded-[12px] p-3 space-y-1.5">
                           <div className="flex items-start gap-2">
-                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#006400]/30 text-[#00a000] text-xs font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
+                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#d4e9e2] text-[#006241] text-xs font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
                             <div className="flex-1 space-y-1">
-                              <p className="text-sm font-semibold text-white leading-snug">"{b.title}"</p>
+                              <p className="text-sm font-semibold text-black/87 leading-snug">"{b.title}"</p>
                               <div className="flex items-center gap-2">
-                                <span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">{b.platform}</span>
+                                <span className="text-xs bg-[#edebe9] text-black/[0.65] px-2 py-0.5 rounded-full">{b.platform}</span>
                               </div>
-                              <p className="text-xs text-slate-400 leading-relaxed">💡 {b.tip}</p>
+                              <p className="text-xs text-black/[0.55] leading-relaxed">💡 {b.tip}</p>
                             </div>
                           </div>
                         </div>
@@ -580,9 +608,8 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
         </div>
       )}
 
-      {/* Category weakness summary */}
-      <div className="space-y-2 border-t border-white/10 pt-4">
-        <p className="text-sm font-semibold text-slate-300">카테고리별 약점 요약</p>
+      <div className="space-y-2 border-t border-black/[0.08] pt-4">
+        <p className="text-sm font-semibold text-black/75">카테고리별 약점 요약</p>
         {(Object.entries(categoryWeakScore) as Array<[PromptCategory, { total: number; weak: number }]>)
           .filter(([, v]) => v.total > 0)
           .sort(([, a], [, b]) => (b.weak / b.total) - (a.weak / a.total))
@@ -590,12 +617,12 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
             const score = Math.round((v.weak / v.total) * 100);
             return (
               <div key={cat} className="flex items-center gap-3">
-                <span className="text-xs text-slate-400 w-14">{cat}</span>
-                <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full ${score >= 60 ? 'bg-rose-500' : score >= 30 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                <span className="text-xs text-black/[0.55] w-14">{cat}</span>
+                <div className="flex-1 h-2 bg-[#e8e8e8] rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full ${score >= 60 ? 'bg-[#c82014]' : score >= 30 ? 'bg-amber-500' : 'bg-[#006241]'}`}
                     style={{ width: `${score}%` }} />
                 </div>
-                <span className={`text-xs font-bold w-8 text-right ${score >= 60 ? 'text-rose-400' : score >= 30 ? 'text-amber-400' : 'text-[#00a000]'}`}>
+                <span className={`text-xs font-bold w-8 text-right ${score >= 60 ? 'text-[#c82014]' : score >= 30 ? 'text-amber-700' : 'text-[#006241]'}`}>
                   {score}%
                 </span>
               </div>
@@ -603,16 +630,15 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
           })}
       </div>
 
-      {/* Overall Score */}
-      <div className="border-t border-white/10 pt-4 flex items-center justify-between">
-        <p className="text-sm text-slate-400">종합 AI 가시성 점수</p>
+      <div className="border-t border-black/[0.08] pt-4 flex items-center justify-between">
+        <p className="text-sm text-black/[0.55]">종합 AI 가시성 점수</p>
         <div className="text-right">
           <span className={`text-3xl font-extrabold ${
-            data.summary.overall.sov >= 60 ? 'text-[#00a000]' :
-            data.summary.overall.sov >= 30 ? 'text-amber-400' : 'text-rose-400'
+            data.summary.overall.sov >= 60 ? 'text-[#006241]' :
+            data.summary.overall.sov >= 30 ? 'text-amber-700' : 'text-[#c82014]'
           }`}>{data.summary.overall.sov}</span>
-          <span className="text-slate-400 text-lg font-bold"> / 100</span>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <span className="text-black/40 text-lg font-bold"> / 100</span>
+          <p className="text-xs text-black/40 mt-0.5">
             {data.summary.overall.sov >= 60 ? '우수 — 경쟁 우위 유지 중' :
              data.summary.overall.sov >= 30 ? '보통 — 콘텐츠 보강 필요' : '미흡 — 즉각적인 GEO 최적화 필요'}
           </p>
@@ -639,7 +665,7 @@ export default function V3Dashboard({ data, history }: V3DashboardProps) {
     try {
       const { toPng } = await import('html-to-image');
       const dataUrl = await toPng(printRef.current, {
-        backgroundColor: '#0f172a',
+        backgroundColor: '#f2f0eb',
         pixelRatio: 2,
       });
       const link = document.createElement('a');
@@ -660,13 +686,14 @@ export default function V3Dashboard({ data, history }: V3DashboardProps) {
       {/* Header + PNG button */}
       <div className="flex items-center justify-between px-1">
         <div>
-          <h2 className="text-xl font-bold text-white">{data.input.clinicFullName}</h2>
-          <p className="text-sm text-slate-400">{data.input.regions.join(' · ')} | {data.input.treatments.join(', ')}</p>
+          <h2 className="text-xl font-bold text-[#1E3932]" style={{ letterSpacing: '-0.16px' }}>{data.input.clinicFullName}</h2>
+          <p className="text-sm text-black/[0.55]">{data.input.regions.join(' · ')} | {data.input.treatments.join(', ')}</p>
         </div>
         <button
           onClick={handleSavePng}
           disabled={saving}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-sm font-semibold text-slate-300 hover:text-white transition disabled:opacity-50 disabled:pointer-events-none"
+          className="flex items-center gap-2 px-4 py-2 rounded-[50px] bg-white hover:bg-[#f2f0eb] border border-black/10 text-sm font-semibold text-black/75 hover:text-[#006241] transition active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+          style={{ boxShadow: '0 0 0.5px rgba(0,0,0,0.14), 0 1px 1px rgba(0,0,0,0.24)' }}
         >
           <Download className="w-4 h-4" />
           {saving ? '저장 중...' : 'PNG 저장'}
@@ -674,9 +701,9 @@ export default function V3Dashboard({ data, history }: V3DashboardProps) {
       </div>
 
       {/* Capture area */}
-      <div ref={printRef} className="space-y-6">
-
+      <div ref={printRef} className="space-y-6 bg-[#f2f0eb] p-2 rounded-[12px]">
         <GaugeSection data={data} />
+        <SummaryCards data={data} />
         <SovBarChart data={data} />
         <PromptOverviewTable data={data} />
         <HistoryLineChart history={history} current={data} />

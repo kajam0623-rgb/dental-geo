@@ -155,27 +155,31 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 font-[family-name:var(--font-geist-sans)] pb-32 text-slate-100 overflow-hidden relative">
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#006400]/30 blur-[150px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-black/60 blur-[150px] pointer-events-none" />
+    <div className="min-h-screen bg-[#f2f0eb] font-[family-name:var(--font-inter)] pb-32 overflow-hidden">
 
-      {/* Header */}
-      <header className="border-b border-white/10 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex items-center justify-between shadow-sm">
+      {/* Header — House Green feature band */}
+      <header
+        className="bg-[#1E3932] sticky top-0 z-50 px-6 py-4 flex items-center justify-between"
+        style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.2), 0 2px 2px rgba(0,0,0,0.12), 0 0 2px rgba(0,0,0,0.10)' }}
+      >
         <div className="flex items-center gap-3">
           {step !== 'home' && (
-            <button onClick={goBack} className="p-2 rounded-xl hover:bg-white/10 transition text-slate-400 hover:text-white mr-1">
+            <button
+              onClick={goBack}
+              className="p-2 rounded-full hover:bg-white/10 transition text-white/70 hover:text-white mr-1 active:scale-95"
+            >
               <ChevronLeft className="w-5 h-5" />
             </button>
           )}
-          <div className="bg-[#006400] p-2 rounded-xl shadow-lg shadow-[#006400]/30">
+          <div className="bg-[#00754A] p-2 rounded-xl">
             <Activity className="text-white w-6 h-6" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-white">
-            닥터원츠 <span className="text-[#00a000]">GEO</span> 프로그램
+          <h1 className="text-xl font-bold tracking-tight text-white" style={{ letterSpacing: '-0.16px' }}>
+            닥터원츠 <span className="text-[#d4e9e2]">GEO</span> 프로그램
           </h1>
         </div>
-        <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-slate-400 bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
-          <Sparkles className="w-4 h-4 text-[#00a000]" />
+        <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-white/70 bg-white/10 px-3 py-1.5 rounded-full">
+          <Sparkles className="w-4 h-4 text-[#d4e9e2]" />
           마케팅 대행사용 AI 점유율 분석 스캐너
         </div>
       </header>
@@ -186,17 +190,19 @@ export default function Home() {
           {(['input', 'prompts', 'loading'] as const).map((s, i) => (
             <div key={s} className="flex items-center gap-2">
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                step === s ? 'bg-[#006400] text-white' :
-                step === 'loading' && i < (['input', 'prompts', 'loading'] as const).indexOf(step)
-                  ? 'bg-[#006400]/30 text-[#00a000]' : 'bg-slate-800 text-slate-500'
+                step === s
+                  ? 'bg-[#00754A] text-white'
+                  : step === 'loading' && i < (['input', 'prompts', 'loading'] as const).indexOf(step)
+                  ? 'bg-[#d4e9e2] text-[#006241]'
+                  : 'bg-[#edebe9] text-black/40'
               }`}>{i + 1}</div>
-              {i < 2 && <div className="w-8 h-px bg-slate-700" />}
+              {i < 2 && <div className="w-8 h-px bg-black/15" />}
             </div>
           ))}
         </div>
       )}
 
-      <main className="max-w-5xl mx-auto px-6 pt-10 pb-12 flex flex-col items-center relative z-10">
+      <main className="max-w-5xl mx-auto px-6 pt-10 pb-12 flex flex-col items-center">
         <AnimatePresence mode="wait">
 
           {/* Home */}
@@ -217,15 +223,15 @@ export default function Home() {
           {step === 'input' && (
             <motion.div key="input" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full space-y-10">
               <div className="text-center space-y-4">
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#006400]/50 bg-[#006400]/10 text-[#00a000] text-sm font-semibold">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#006241]/30 bg-[#d4e9e2] text-[#006241] text-sm font-semibold">
                   <MapPin className="w-4 h-4" />
                   실제 환자들의 로컬 검색점유율 분석
                 </div>
-                <h2 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight">
+                <h2 className="text-4xl md:text-5xl font-extrabold text-[#006241] tracking-tight leading-tight" style={{ letterSpacing: '-0.16px' }}>
                   치과 AI 플랫폼 검색 장악력을<br className="hidden md:block" />
-                  <span className="text-[#006400]"> 한눈에 확인하세요</span>
+                  <span className="text-[#1E3932]"> 한눈에 확인하세요</span>
                 </h2>
-                <p className="text-slate-400 text-base max-w-xl mx-auto">치과명, 진료과목, 지역을 입력하면 AI가 롱테일 프롬프트를 자동 생성합니다.</p>
+                <p className="text-black/[0.58] text-base max-w-xl mx-auto">치과명, 진료과목, 지역을 입력하면 AI가 롱테일 프롬프트를 자동 생성합니다.</p>
               </div>
               <SearchForm onNext={handleInputNext} />
             </motion.div>
@@ -235,8 +241,8 @@ export default function Home() {
           {step === 'prompts' && (
             <motion.div key="prompts" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full">
               <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold text-white">프롬프트 설정</h2>
-                <p className="text-slate-400 text-sm mt-1">{searchInput?.clinicFullName} · {searchInput?.regions.join(', ')}</p>
+                <h2 className="text-2xl font-bold text-[#1E3932]" style={{ letterSpacing: '-0.16px' }}>프롬프트 설정</h2>
+                <p className="text-black/[0.55] text-sm mt-1">{searchInput?.clinicFullName} · {searchInput?.regions.join(', ')}</p>
               </div>
               <PromptSelector prompts={generatedPrompts} onStart={handleScanStart} />
             </motion.div>
@@ -246,15 +252,15 @@ export default function Home() {
           {step === 'loading' && (
             <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center justify-center py-32 space-y-6">
               <div className="relative w-24 h-24">
-                <div className="absolute inset-0 border-4 border-[#006400]/30 rounded-full" />
-                <div className="absolute inset-0 border-4 border-[#006400] border-t-transparent rounded-full animate-spin" />
+                <div className="absolute inset-0 border-4 border-[#d4e9e2] rounded-full" />
+                <div className="absolute inset-0 border-4 border-[#00754A] border-t-transparent rounded-full animate-spin" />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <SearchIcon className="w-8 h-8 text-[#00a000]" />
+                  <SearchIcon className="w-8 h-8 text-[#006241]" />
                 </div>
               </div>
               <div className="text-center">
-                <p className="text-[#00a000] font-bold text-xl">{loadingMsg}</p>
-                <p className="text-slate-400 text-sm mt-2 max-w-sm">ChatGPT와 Gemini에 반복 질의 중입니다. 설정된 횟수에 따라 수 분이 소요될 수 있습니다.</p>
+                <p className="text-[#006241] font-bold text-xl">{loadingMsg}</p>
+                <p className="text-black/[0.55] text-sm mt-2 max-w-sm">ChatGPT와 Gemini에 반복 질의 중입니다. 설정된 횟수에 따라 수 분이 소요될 수 있습니다.</p>
               </div>
             </motion.div>
           )}
@@ -268,10 +274,10 @@ export default function Home() {
                   <button
                     onClick={handleSave}
                     disabled={scanSaved}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all ${
+                    className={`flex items-center gap-2 px-6 py-3 font-bold text-sm transition-all active:scale-95 ${
                       scanSaved
-                        ? 'bg-[#006400]/20 text-[#00a000] border border-[#006400]/40 cursor-default'
-                        : 'bg-[#006400] text-white hover:shadow-[0_0_20px_rgba(0,100,0,0.4)] hover:scale-[1.01] active:scale-95'
+                        ? 'bg-[#d4e9e2] text-[#006241] border border-[#006241]/30 cursor-default rounded-[50px]'
+                        : 'bg-[#00754A] text-white rounded-[50px] hover:shadow-[0_4px_12px_rgba(0,117,74,0.3)]'
                     }`}
                   >
                     {scanSaved ? <><Check className="w-4 h-4" /> 저장됨</> : <><Save className="w-4 h-4" /> 치과 저장</>}
@@ -287,12 +293,15 @@ export default function Home() {
                       setScanSaved(false);
                       setStep('prompts');
                     }}
-                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#006400] text-white font-bold text-sm hover:shadow-[0_0_20px_rgba(0,100,0,0.4)] hover:scale-[1.01] active:scale-95 transition-all"
+                    className="flex items-center gap-2 px-6 py-3 rounded-[50px] bg-[#00754A] text-white font-bold text-sm hover:shadow-[0_4px_12px_rgba(0,117,74,0.3)] active:scale-95 transition-all"
                   >
                     <RefreshCw className="w-4 h-4" /> 이 치과로 새 분석
                   </button>
                 )}
-                <button onClick={reset} className="px-8 py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition font-medium">
+                <button
+                  onClick={reset}
+                  className="px-8 py-3 rounded-[50px] border border-black/20 text-black/[0.58] hover:text-black/87 hover:border-black/30 transition font-medium active:scale-95"
+                >
                   {isFromSaved ? '목록으로' : '새로운 분석 시작'}
                 </button>
               </div>

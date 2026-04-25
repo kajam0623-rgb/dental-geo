@@ -31,41 +31,42 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#006400]/25 blur-[150px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-black/50 blur-[150px] pointer-events-none" />
-
-      <form onSubmit={handleSubmit} className="relative z-10 w-full max-w-sm space-y-6 bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
+    <div className="min-h-screen bg-[#f2f0eb] flex items-center justify-center px-4">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-sm space-y-6 bg-white rounded-[12px] p-8"
+        style={{ boxShadow: '0 0 0.5px rgba(0,0,0,0.14), 0 4px 16px rgba(0,0,0,0.10)' }}
+      >
         <div className="flex flex-col items-center gap-3">
-          <div className="bg-gradient-to-tr from-[#006400] to-black p-3 rounded-2xl shadow-lg shadow-[#006400]/30">
+          <div className="bg-[#1E3932] p-3 rounded-xl">
             <Activity className="text-white w-7 h-7" />
           </div>
           <div className="text-center">
-            <h1 className="text-xl font-bold text-white">닥터원츠 GEO</h1>
-            <p className="text-sm text-slate-400 mt-1">접근하려면 비밀번호를 입력하세요</p>
+            <h1 className="text-xl font-bold text-[#1E3932]" style={{ letterSpacing: '-0.16px' }}>닥터원츠 GEO</h1>
+            <p className="text-sm text-black/[0.55] mt-1">접근하려면 비밀번호를 입력하세요</p>
           </div>
         </div>
 
         <div className="space-y-2">
-          <label className="block text-sm font-semibold text-slate-300">비밀번호</label>
+          <label className="block text-sm font-semibold text-black/87">비밀번호</label>
           <div className="relative">
-            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30" />
             <input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="비밀번호 입력"
               autoFocus
-              className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-700 bg-slate-800/50 text-white focus:outline-none focus:ring-2 focus:ring-[#006400] transition placeholder:text-slate-500"
+              className="w-full pl-11 pr-4 py-3.5 rounded-[8px] border border-[#d6dbde] bg-white text-black/87 focus:outline-none focus:border-[#00754A] focus:ring-1 focus:ring-[#00754A] transition placeholder:text-black/30"
             />
           </div>
-          {error && <p className="text-rose-400 text-sm">{error}</p>}
+          {error && <p className="text-[#c82014] text-sm">{error}</p>}
         </div>
 
         <button
           type="submit"
           disabled={loading || !password}
-          className="w-full py-3.5 rounded-xl font-bold bg-gradient-to-r from-[#006400] to-black text-white hover:shadow-[0_0_20px_rgba(0,100,0,0.5)] hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+          className="w-full py-3.5 rounded-[50px] font-bold bg-[#00754A] text-white hover:shadow-[0_4px_16px_rgba(0,117,74,0.3)] active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
         >
           {loading ? '확인 중...' : '입장'}
         </button>

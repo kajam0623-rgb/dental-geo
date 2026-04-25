@@ -1,23 +1,41 @@
 @import "tailwindcss";
 
 :root {
-  --background: #020617; /* bg-slate-950 */
-  --foreground: #f1f5f9; /* text-slate-100 */
+  --background: #f2f0eb;
+  --foreground: rgba(0, 0, 0, 0.87);
+
+  --starbucks-green: #006241;
+  --green-accent: #00754A;
+  --house-green: #1E3932;
+  --green-light: #d4e9e2;
+
+  --neutral-warm: #f2f0eb;
+  --ceramic: #edebe9;
+
+  --text-black: rgba(0, 0, 0, 0.87);
+  --text-black-soft: rgba(0, 0, 0, 0.58);
+  --text-white: rgba(255, 255, 255, 1);
+  --text-white-soft: rgba(255, 255, 255, 0.70);
+
+  --card-shadow: 0 0 0.5px rgba(0,0,0,0.14), 0 1px 1px rgba(0,0,0,0.24);
+  --card-radius: 12px;
+  --button-radius: 50px;
+  --nav-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 2px 2px rgba(0,0,0,0.06), 0 0 2px rgba(0,0,0,0.07);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), 'Helvetica Neue', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -29,10 +47,10 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: rgba(0, 0, 0, 0.2);
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: rgba(0, 0, 0, 0.35);
 }
