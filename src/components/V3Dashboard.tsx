@@ -519,7 +519,7 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
 
   const weakPrompts = data.promptResults.filter(r => {
     const avg = ((r.chatgpt.mentioned / (r.chatgpt.total || 1)) + (r.gemini.mentioned / (r.gemini.total || 1))) / 2 * 100;
-    return avg < 30;
+    return avg < 60;
   });
 
   const categoryWeakScore: Record<PromptCategory, { total: number; weak: number }> = {
@@ -532,7 +532,7 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
     const cat = r.prompt.category;
     categoryWeakScore[cat].total++;
     const avg = ((r.chatgpt.mentioned / (r.chatgpt.total || 1)) + (r.gemini.mentioned / (r.gemini.total || 1))) / 2 * 100;
-    if (avg < 30) categoryWeakScore[cat].weak++;
+    if (avg < 60) categoryWeakScore[cat].weak++;
   });
 
   return (
@@ -548,12 +548,12 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
 
       {weakPrompts.length === 0 ? (
         <div className="text-center py-6 text-[#006241] font-semibold text-sm">
-          모든 프롬프트에서 30% 이상 노출 — 우수한 AI 가시성입니다.
+          모든 프롬프트에서 60% 이상 노출 — 우수한 AI 가시성입니다.
         </div>
       ) : (
         <div className="space-y-3">
           <p className="text-sm font-semibold text-[#c82014]">
-            노출 부족 프롬프트 ({weakPrompts.length}개) — 클릭하면 원인 분석 + 블로그 제안 확인
+            개선 필요 프롬프트 ({weakPrompts.length}개, 60% 미만) — 클릭하면 원인 분석 + 블로그 제안 확인
           </p>
 
           {weakPrompts.map(r => {
@@ -637,10 +637,10 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
               <div key={cat} className="flex items-center gap-3">
                 <span className="text-xs text-black/[0.55] w-14">{cat}</span>
                 <div className="flex-1 h-2 bg-[#e8e8e8] rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full ${score >= 60 ? 'bg-[#c82014]' : score >= 30 ? 'bg-amber-500' : 'bg-[#006241]'}`}
+                  <div className={`h-full rounded-full ${score >= 80 ? 'bg-[#c82014]' : score >= 50 ? 'bg-amber-500' : 'bg-[#006241]'}`}
                     style={{ width: `${score}%` }} />
                 </div>
-                <span className={`text-xs font-bold w-8 text-right ${score >= 60 ? 'text-[#c82014]' : score >= 30 ? 'text-amber-700' : 'text-[#006241]'}`}>
+                <span className={`text-xs font-bold w-8 text-right ${score >= 80 ? 'text-[#c82014]' : score >= 50 ? 'text-amber-700' : 'text-[#006241]'}`}>
                   {score}%
                 </span>
               </div>
