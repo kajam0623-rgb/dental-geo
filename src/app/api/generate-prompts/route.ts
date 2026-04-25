@@ -23,19 +23,23 @@ export async function POST(request: Request) {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
+    const regionList = input.regions.join(', ');
+    const treatmentList = input.treatments.join(', ');
+
     const prompt = `너는 치과 마케팅 AI 전문가야. 아래 치과 정보를 바탕으로, 실제 환자들이 ChatGPT·Gemini 같은 AI에게 물어볼 법한 자연스러운 한국어 롱테일 검색 질문 20개를 만들어줘.
 
 치과 정보:
 - 치과명: ${input.clinicFullName}
-- 진료과목: ${input.treatments.join(', ')}
-- 지역: ${input.regions.join(', ')}
+- 진료과목: ${treatmentList}
+- 지역: ${regionList}
 
 규칙:
 1. 카테고리 분류 — 지역형 6개, 증상형 5개, 비교형 5개, 추천형 4개 (합계 정확히 20개)
 2. 실제 환자 구어체 한국어 (격식체 금지)
-3. 치과 풀네임("${input.clinicFullName}") 절대 포함 금지 — 지역명·진료과목 중심으로 작성
-4. 지역(${input.regions.join(', ')})과 진료과목(${input.treatments.join(', ')})을 골고루 활용
-5. JSON 배열만 출력 (설명·마크다운 없이):
+3. 치과 풀네임("${input.clinicFullName}") 절대 포함 금지
+4. 모든 카테고리(지역형·증상형·비교형·추천형)에 반드시 지역명(${regionList}) 포함
+5. 지역과 진료과목(${treatmentList})을 골고루 활용
+6. JSON 배열만 출력 (설명·마크다운 없이):
 
 [{"category":"지역형","text":"질문"},...]`;
 
