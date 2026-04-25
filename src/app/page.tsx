@@ -46,9 +46,27 @@ export default function Home() {
 
   const refreshClinics = () => { getClinics().then(setClinics); };
 
-  const handleInputNext = (input: V3SearchInput) => {
+  const handleInputNext = async (input: V3SearchInput) => {
     setSearchInput(input);
-    setGeneratedPrompts(generatePromptsV3(input.regions, input.treatments));
+    setLoadingMsg('AI 프롬프트 생성 중...');
+    setStep('loading');
+
+    try {
+      const res = await fetch('/api/generate-prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input }),
+      });
+      const json = await res.json();
+      if (json.success && json.prompts?.length >= 10) {
+        setGeneratedPrompts(json.prompts);
+      } else {
+        setGeneratedPrompts(generatePromptsV3(input.regions, input.treatments));
+      }
+    } catch {
+      setGeneratedPrompts(generatePromptsV3(input.regions, input.treatments));
+    }
+
     setStep('prompts');
   };
 
@@ -260,7 +278,11 @@ export default function Home() {
               </div>
               <div className="text-center">
                 <p className="text-[#006241] font-bold text-xl">{loadingMsg}</p>
-                <p className="text-black/[0.55] text-sm mt-2 max-w-sm">ChatGPT와 Gemini에 반복 질의 중입니다. 설정된 횟수에 따라 수 분이 소요될 수 있습니다.</p>
+                <p className="text-black/[0.55] text-sm mt-2 max-w-sm">
+                  {loadingMsg === 'AI 프롬프트 생성 중...'
+                    ? '병원 정보 기반으로 최적의 롱테일 프롬프트를 생성하고 있습니다.'
+                    : 'ChatGPT와 Gemini에 반복 질의 중입니다. 설정된 횟수에 따라 수 분이 소요될 수 있습니다.'}
+                </p>
               </div>
             </motion.div>
           )}
