@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line,
@@ -101,6 +101,9 @@ function SummaryCards({ data }: { data: V3AnalysisResult }) {
 // ─── Bar Chart ──────────────────────────────────────────────────
 
 function SovBarChart({ data }: { data: V3AnalysisResult }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   const chartData = data.promptResults.map((r, i) => ({
     name: `${i + 1}`,
     ChatGPT: r.chatgpt.total > 0 ? Math.round((r.chatgpt.mentioned / r.chatgpt.total) * 100) : 0,
@@ -118,6 +121,11 @@ function SovBarChart({ data }: { data: V3AnalysisResult }) {
         <h3 className="font-bold text-[#1E3932]" style={{ letterSpacing: '-0.16px' }}>프롬프트별 노출율 (ChatGPT vs Gemini)</h3>
         <p className="text-xs text-black/40">{formatDate(data.scanDate)} 기준</p>
       </div>
+      {!mounted ? (
+        <div className="h-[220px] flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-[#d4e9e2] border-t-[#00754A] rounded-full animate-spin" />
+        </div>
+      ) : (
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -137,6 +145,7 @@ function SovBarChart({ data }: { data: V3AnalysisResult }) {
           <Bar dataKey="Gemini" fill="#1E3932" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
+      )}
 
       <div className="space-y-2 pt-2 border-t border-black/[0.06]">
         {chartData.map((d, i) => (
@@ -157,6 +166,8 @@ function SovBarChart({ data }: { data: V3AnalysisResult }) {
 // ─── Line Chart (History) ────────────────────────────────────────
 
 function HistoryLineChart({ history, current }: { history: HistoryRecord[]; current: V3AnalysisResult }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
   const currentRecord: HistoryRecord = {
     scanDate: current.scanDate,
     clinicFullName: current.input.clinicFullName,
@@ -194,6 +205,11 @@ function HistoryLineChart({ history, current }: { history: HistoryRecord[]; curr
         <TrendingUp className="w-5 h-5 text-[#006241]" />
         <h3 className="font-bold text-[#1E3932]" style={{ letterSpacing: '-0.16px' }}>날짜별 SOV 추이</h3>
       </div>
+      {!mounted ? (
+        <div className="h-[220px] flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-[#d4e9e2] border-t-[#00754A] rounded-full animate-spin" />
+        </div>
+      ) : (
       <ResponsiveContainer width="100%" height={220}>
         <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -209,6 +225,7 @@ function HistoryLineChart({ history, current }: { history: HistoryRecord[]; curr
           <Line type="monotone" dataKey="종합" stroke="#b45309" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 4 }} />
         </LineChart>
       </ResponsiveContainer>
+      )}
     </div>
   );
 }
@@ -608,6 +625,7 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
         </div>
       )}
 
+      {weakPrompts.length > 0 && (
       <div className="space-y-2 border-t border-black/[0.08] pt-4">
         <p className="text-sm font-semibold text-black/75">카테고리별 약점 요약</p>
         {(Object.entries(categoryWeakScore) as Array<[PromptCategory, { total: number; weak: number }]>)
@@ -629,6 +647,7 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
             );
           })}
       </div>
+      )}
 
       <div className="border-t border-black/[0.08] pt-4 flex items-center justify-between">
         <p className="text-sm text-black/[0.55]">종합 AI 가시성 점수</p>

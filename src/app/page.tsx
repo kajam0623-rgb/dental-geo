@@ -198,7 +198,7 @@ export default function Home() {
         </div>
         <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-white/70 bg-white/10 px-3 py-1.5 rounded-full">
           <Sparkles className="w-4 h-4 text-[#d4e9e2]" />
-          마케팅 대행사용 AI 점유율 분석 스캐너
+          치과전문가가 만든 치과 마케팅
         </div>
       </header>
 
