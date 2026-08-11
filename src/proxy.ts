@@ -7,8 +7,14 @@ import { AUTH_COOKIE, verifyToken } from '@/utils/authToken';
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 로그인 페이지와 인증 API는 통과
-  if (pathname.startsWith('/login') || pathname.startsWith('/api/auth')) {
+  // 로그인 페이지와 인증 API는 통과.
+  // keepalive는 Vercel Cron이 호출하므로 비밀번호 게이트를 지나갈 수 없다.
+  // 대신 라우트 안에서 CRON_SECRET으로 막는다.
+  if (
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/api/keepalive')
+  ) {
     return NextResponse.next();
   }
 
