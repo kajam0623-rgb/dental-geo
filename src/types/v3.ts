@@ -1,3 +1,7 @@
+import type { CompetitorRank, WeakKeyword } from './ranking';
+
+export type { CompetitorRank, WeakKeyword };
+
 export type PromptCategory = '지역형' | '증상형' | '비교형' | '추천형';
 
 export interface PromptItem {
@@ -15,62 +19,84 @@ export interface V3SearchInput {
 }
 
 export interface ScanSettings {
-  chatgptCount: 3 | 5 | 10 | 20;
-  geminiCount: 3 | 5 | 10 | 20;
+  chatgptCount: 3 | 5 | 10;
+  geminiCount: 3 | 5 | 10;
+}
+
+/**
+ * answered = 실제로 응답을 받은 건수. sov의 분모는 total이 아니라 answered다.
+ * failed(오류·타임아웃)를 '노출 안 됨'으로 세면 API 장애 시 허위 0% 리포트가 나간다.
+ */
+export interface EngineSummary {
+  total: number;
+  answered: number;
+  failed: number;
+  mentions: number;
+  sov: number;
+}
+
+export interface EngineScanResult extends EngineSummary {
+  responseTexts: string[];
+  positions: Array<number | null>;
+  oks: boolean[];
 }
 
 export interface PromptScanResult {
   prompt: PromptItem;
-  chatgpt: {
-    mentioned: number;
-    total: number;
-    responseTexts: string[];
-  };
-  gemini: {
-    mentioned: number;
-    total: number;
-    responseTexts: string[];
-  };
+  chatgpt: EngineScanResult;
+  gemini: EngineScanResult;
 }
 
-export interface CompetitorRank {
-  name: string;
-  count: number;
-  percentage: number;
-  isTarget?: boolean;
+export interface V3Summary {
+  chatgpt: EngineSummary;
+  gemini: EngineSummary;
+  overall: { sov: number };
+  totalAnswered: number;
+  totalFailed: number;
+  /** 양쪽 엔진 모두에서 노출된 프롬프트 비율 (구 agreementRate 대체) */
+  bothVisibleRate: number;
+  /** AI 추천 목록에서 우리 병원의 평균 순위. 미노출이면 null */
+  avgPosition: number | null;
 }
 
 export interface V3AnalysisResult {
   input: V3SearchInput;
   settings: ScanSettings;
   scanDate: string;
+  schemaVersion: 2;
   promptResults: PromptScanResult[];
-  summary: {
-    chatgpt: { sov: number; mentions: number; total: number };
-    gemini: { sov: number; mentions: number; total: number };
-    overall: { sov: number };
-    agreementRate: number;
-  };
+  summary: V3Summary;
   competitorRankings: CompetitorRank[];
+  weakKeywords: WeakKeyword[];
 }
 
+/** KV에 보관하는 스캔 요약. 응답 원문은 geo:texts:<id>에 따로 저장한다. */
 export interface SavedScan {
   id: string;
   scanDate: string;
+  schemaVersion: 2;
   input: V3SearchInput;
   settings: ScanSettings;
   promptResults: Array<{
     prompt: PromptItem;
-    chatgpt: { mentioned: number; total: number };
-    gemini: { mentioned: number; total: number };
+    chatgpt: EngineSummary & { positions: Array<number | null> };
+    gemini: EngineSummary & { positions: Array<number | null> };
   }>;
-  summary: {
-    chatgpt: { sov: number; mentions: number; total: number };
-    gemini: { sov: number; mentions: number; total: number };
-    overall: { sov: number };
-    agreementRate: number;
-  };
+  summary: V3Summary;
   competitorRankings: CompetitorRank[];
+  weakKeywords: WeakKeyword[];
+}
+
+/** 프롬프트별·엔진별 응답 원문. 스캔 1건당 1레코드. */
+export interface ScanTexts {
+  scanId: string;
+  byPrompt: Array<{
+    promptId: string;
+    chatgpt: string[];
+    gemini: string[];
+    chatgptOks: boolean[];
+    geminiOks: boolean[];
+  }>;
 }
 
 export interface ClinicRecord {
@@ -78,6 +104,7 @@ export interface ClinicRecord {
   clinicShortName: string;
   scans: SavedScan[];
   lastUpdated: string;
+  schemaVersion: 2;
 }
 
 export interface HistoryRecord {

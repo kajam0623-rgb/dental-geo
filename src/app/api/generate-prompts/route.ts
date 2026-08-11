@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import type { V3SearchInput, PromptItem, PromptCategory } from '@/types/v3';
+import { SUFFIX } from '@/utils/promptGenerator';
 
-export const maxDuration = 30;
+// 실측 18.7초 — 콜드스타트가 붙으면 30초로는 모자란다
+export const maxDuration = 60;
 
+const GEMINI_MODEL = 'gemini-3.5-flash';
 const VALID_CATEGORIES = new Set<PromptCategory>(['지역형', '증상형', '비교형', '추천형']);
-const SUFFIX = ' 추천하는 치과 이름만 짧게 알려줘.';
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -20,8 +22,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     const regionList = input.regions.join(', ');
     const treatmentList = input.treatments.join(', ');
@@ -43,8 +44,11 @@ export async function POST(request: Request) {
 
 [{"category":"지역형","text":"질문"},...]`;
 
-    const result = await model.generateContent(prompt);
-    const raw = result.response.text().trim();
+    const result = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+    });
+    const raw = (result.text || '').trim();
 
     const jsonMatch = raw.match(/\[[\s\S]*\]/);
     if (!jsonMatch) throw new Error('JSON 파싱 실패');

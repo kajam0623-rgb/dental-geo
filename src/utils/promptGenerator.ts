@@ -1,6 +1,6 @@
 import type { PromptItem, PromptCategory } from '@/types/v3';
 
-const SUFFIX = ' 추천하는 치과 이름만 나열해줘.';
+export const SUFFIX = ' 추천하는 치과 이름만 짧게 알려줘.';
 
 /** Legacy: used by old search API */
 export function generatePrompts(region: string, treatment: string): string[] {

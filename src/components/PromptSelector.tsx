@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Check, Pencil, Trash2, Plus, Sparkles, ChevronRight } from 'lucide-react';
 import type { PromptItem, PromptCategory, ScanSettings } from '@/types/v3';
+import { SUFFIX } from '@/utils/promptGenerator';
 
 const CATEGORY_COLORS: Record<PromptCategory, string> = {
   '지역형': 'bg-[#d4e9e2] text-[#006241] border-[#006241]/20',
@@ -41,13 +42,18 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
     });
   };
 
+  // 편집은 접미사 없는 displayText로 한다.
+  // 예전엔 text만 갱신해서 화면은 옛 문구, 실제 질의는 새 문구인 이중 상태가 됐다.
   const startEdit = (item: PromptItem) => {
     setEditingId(item.id);
-    setEditText(item.text);
+    setEditText(item.displayText);
   };
 
   const saveEdit = () => {
-    setItems(prev => prev.map(p => p.id === editingId ? { ...p, text: editText } : p));
+    const displayText = editText.trim();
+    if (!displayText) { setEditingId(null); return; }
+    setItems(prev => prev.map(p =>
+      p.id === editingId ? { ...p, displayText, text: displayText + SUFFIX } : p));
     setEditingId(null);
   };
 
@@ -59,7 +65,14 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
   const addPrompt = () => {
     const text = newPrompt.trim();
     if (!text || items.length >= 20) return;
-    const newItem: PromptItem = { id: `custom-${Date.now()}`, text, displayText: text, category: '추천형' };
+    // 직접 추가한 프롬프트에도 접미사를 붙인다. 빠뜨리면 이 프롬프트만
+    // 장문 응답이 와서 순위 추출 정확도가 떨어진다.
+    const newItem: PromptItem = {
+      id: `custom-${Date.now()}`,
+      text: text + SUFFIX,
+      displayText: text,
+      category: '추천형',
+    };
     setItems(prev => [...prev, newItem]);
     if (selected.size < maxSelect) setSelected(prev => new Set([...prev, newItem.id]));
     setNewPrompt('');
@@ -72,6 +85,14 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
   };
 
   const totalCalls = selected.size * (chatgptCount + geminiCount);
+
+  // 실측 기준 호출 1건당 약 7초. 프롬프트는 3개씩, 엔진별 요청은 5개씩 동시 처리된다.
+  const SEC_PER_CALL = 7;
+  const estimatedSec = selected.size === 0 ? 0
+    : Math.ceil(selected.size / 3) * Math.ceil(Math.max(chatgptCount, geminiCount) / 5) * SEC_PER_CALL;
+  const estimatedLabel = estimatedSec >= 60
+    ? `약 ${Math.round(estimatedSec / 60)}분`
+    : `약 ${estimatedSec}초`;
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6">
@@ -223,6 +244,9 @@ export default function PromptSelector({ prompts, onStart, isLoading = false }: 
         </div>
         <p className="text-xs text-black/40 text-center">
           총 API 호출: <span className="text-black/75 font-bold">{totalCalls}회</span> ({selected.size}개 프롬프트 × 각 {chatgptCount + geminiCount}회)
+          {selected.size > 0 && (
+            <> · 예상 소요 <span className="text-black/75 font-bold">{estimatedLabel}</span></>
+          )}
         </p>
       </div>
 

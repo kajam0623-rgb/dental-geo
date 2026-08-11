@@ -1,14 +1,23 @@
 'use client';
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useSyncExternalStore } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line,
 } from 'recharts';
-import { Trophy, TrendingUp, FileText, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import { Trophy, TrendingUp, FileText, ChevronDown, ChevronUp, Download, AlertTriangle, Target } from 'lucide-react';
 import type { V3AnalysisResult, HistoryRecord, PromptCategory } from '@/types/v3';
 
 // ─── Helpers ────────────────────────────────────────────────────
+
+/**
+ * recharts ResponsiveContainer는 서버 렌더 결과가 클라이언트와 달라 hydration이 어긋난다.
+ * effect에서 setState하면 cascading render 경고가 나므로 외부 스토어 스냅샷으로 판정한다.
+ */
+const NOOP_SUBSCRIBE = () => () => {};
+function useMounted(): boolean {
+  return useSyncExternalStore(NOOP_SUBSCRIBE, () => true, () => false);
+}
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -62,10 +71,12 @@ function GaugeSection({ data }: { data: V3AnalysisResult }) {
         <div className="text-center space-y-1">
           <p className="text-xs text-black/40">스캔 일시</p>
           <p className="text-sm font-bold text-black/87">{formatDate(data.scanDate)}</p>
-          <p className="text-xs text-black/40 mt-2">총 스캔 횟수</p>
-          <p className="text-sm font-bold text-black/87">{data.summary.chatgpt.total + data.summary.gemini.total}회</p>
-          <p className="text-xs text-black/40 mt-2">엔진 일치율</p>
-          <p className="text-sm font-bold text-black/87">{data.summary.agreementRate}%</p>
+          <p className="text-xs text-black/40 mt-2">응답 / 총 질의</p>
+          <p className="text-sm font-bold text-black/87">{data.summary.totalAnswered} / {data.summary.chatgpt.total + data.summary.gemini.total}회</p>
+          <p className="text-xs text-black/40 mt-2">평균 추천 순위</p>
+          <p className="text-sm font-bold text-black/87">
+            {data.summary.avgPosition !== null ? `${data.summary.avgPosition}위` : '미노출'}
+          </p>
         </div>
       </div>
     </div>
@@ -74,15 +85,50 @@ function GaugeSection({ data }: { data: V3AnalysisResult }) {
 
 // ─── SOV Summary Cards ──────────────────────────────────────────
 
-function SummaryCards({ data }: { data: V3AnalysisResult }) {
+function FailureBanner({ data }: { data: V3AnalysisResult }) {
+  if (data.summary.totalFailed === 0) return null;
+  return (
+    <div className="flex items-start gap-3 p-4 rounded-[12px] border border-amber-300 bg-amber-50 text-amber-900 text-sm">
+      <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
+      <div>
+        <span className="font-bold">{data.summary.totalFailed}건의 질의가 응답을 받지 못했습니다.</span>
+        <span className="text-amber-900/80"> (API 오류 또는 타임아웃) 해당 건은 점유율 계산에서 제외했습니다 — &lsquo;노출 안 됨&rsquo;이 아닙니다.</span>
+      </div>
+    </div>
+  );
+}
+
+/** 직전 스캔 대비 변화. 같은 스캔이 history 마지막에 들어있을 수 있어 날짜로 걸러낸다. */
+function previousSov(history: HistoryRecord[], current: V3AnalysisResult): number | null {
+  const prev = history.filter(h => h.scanDate !== current.scanDate);
+  return prev.length > 0 ? prev[prev.length - 1].overallSov : null;
+}
+
+function DeltaBadge({ delta }: { delta: number }) {
+  if (delta === 0) return <span className="text-xs text-black/40">지난 스캔과 동일</span>;
+  const up = delta > 0;
+  return (
+    <span className={`text-xs font-bold ${up ? 'text-[#006241]' : 'text-[#c82014]'}`}>
+      {up ? '▲' : '▼'} {Math.abs(Number(delta.toFixed(1)))}%p <span className="font-medium text-black/40">지난 스캔 대비</span>
+    </span>
+  );
+}
+
+function SummaryCards({ data, history }: { data: V3AnalysisResult; history: HistoryRecord[] }) {
   const { summary } = data;
+  const prev = previousSov(history, data);
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       {[
-        { label: '종합 SOV', value: summary.overall.sov, sub: `총 ${summary.chatgpt.total + summary.gemini.total}회 스캔` },
-        { label: 'ChatGPT SOV', value: summary.chatgpt.sov, sub: `${summary.chatgpt.mentions} / ${summary.chatgpt.total}회 언급` },
-        { label: 'Gemini SOV', value: summary.gemini.sov, sub: `${summary.gemini.mentions} / ${summary.gemini.total}회 언급` },
-        { label: '엔진 일치율', value: summary.agreementRate, sub: '두 엔진 동의 비율' },
+        {
+          label: '종합 SOV',
+          value: summary.overall.sov,
+          sub: `응답 ${summary.totalAnswered}회 기준`,
+          delta: prev !== null ? summary.overall.sov - prev : null,
+        },
+        { label: 'ChatGPT SOV', value: summary.chatgpt.sov, sub: `${summary.chatgpt.mentions} / 응답 ${summary.chatgpt.answered}회` },
+        { label: 'Gemini SOV', value: summary.gemini.sov, sub: `${summary.gemini.mentions} / 응답 ${summary.gemini.answered}회` },
+        { label: '동시 노출률', value: summary.bothVisibleRate, sub: '양쪽 엔진 모두 노출' },
       ].map(c => (
         <div
           key={c.label}
@@ -92,6 +138,7 @@ function SummaryCards({ data }: { data: V3AnalysisResult }) {
           <p className="text-xs text-black/[0.55] font-medium">{c.label}</p>
           <SovBadge value={c.value} />
           <p className="text-xs text-black/40">{c.sub}</p>
+          {c.delta != null && <DeltaBadge delta={c.delta} />}
         </div>
       ))}
     </div>
@@ -101,13 +148,12 @@ function SummaryCards({ data }: { data: V3AnalysisResult }) {
 // ─── Bar Chart ──────────────────────────────────────────────────
 
 function SovBarChart({ data }: { data: V3AnalysisResult }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+  const mounted = useMounted();
 
   const chartData = data.promptResults.map((r, i) => ({
     name: `${i + 1}`,
-    ChatGPT: r.chatgpt.total > 0 ? Math.round((r.chatgpt.mentioned / r.chatgpt.total) * 100) : 0,
-    Gemini: r.gemini.total > 0 ? Math.round((r.gemini.mentioned / r.gemini.total) * 100) : 0,
+    ChatGPT: r.chatgpt.sov,
+    Gemini: r.gemini.sov,
     fullText: r.prompt.displayText ?? r.prompt.text,
     category: r.prompt.category,
   }));
@@ -166,8 +212,7 @@ function SovBarChart({ data }: { data: V3AnalysisResult }) {
 // ─── Line Chart (History) ────────────────────────────────────────
 
 function HistoryLineChart({ history, current }: { history: HistoryRecord[]; current: V3AnalysisResult }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+  const mounted = useMounted();
   const currentRecord: HistoryRecord = {
     scanDate: current.scanDate,
     clinicFullName: current.input.clinicFullName,
@@ -261,12 +306,14 @@ function CompetitorRanking({ data }: { data: V3AnalysisResult }) {
                     <span className="flex-shrink-0 text-xs bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full font-bold">우리 병원</span>
                   )}
                 </div>
-                <span className="text-sm font-bold text-black/75 ml-2">{c.percentage}%</span>
+                <span className="text-sm font-bold text-black/75 ml-2 flex-shrink-0">
+                  {c.exposureRate}% <span className="text-black/40 font-medium">· 평균 {c.avgPosition}위</span>
+                </span>
               </div>
               <div className="h-1.5 bg-[#e8e8e8] rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all ${c.isTarget ? 'bg-amber-500' : 'bg-[#00754A]'}`}
-                  style={{ width: `${Math.min(c.percentage * 2, 100)}%` }}
+                  style={{ width: `${Math.min(c.exposureRate * 2, 100)}%` }}
                 />
               </div>
             </div>
@@ -280,13 +327,12 @@ function CompetitorRanking({ data }: { data: V3AnalysisResult }) {
 // ─── Prompt Overview Table (O/X 한눈에) ─────────────────────────
 
 function PromptOverviewTable({ data }: { data: V3AnalysisResult }) {
-  const pct = (mentioned: number, total: number) =>
-    total > 0 ? Math.round((mentioned / total) * 100) : 0;
-
-  const cell = (p: number) => {
-    const bg = p >= 50 ? 'bg-[#d4e9e2] text-[#006241]' : p > 0 ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-[#c82014]';
-    const label = p >= 50 ? '●' : p > 0 ? '△' : '✕';
-    return { bg, label, p };
+  // answered=0이면 응답 자체가 없던 것 — '미노출'과 구분해 ⚠로 표시한다
+  const cell = (sov: number, answered: number) => {
+    if (answered === 0) return { bg: 'bg-amber-100 text-amber-800', label: '⚠', p: 0, unknown: true };
+    const bg = sov >= 50 ? 'bg-[#d4e9e2] text-[#006241]' : sov > 0 ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-[#c82014]';
+    const label = sov >= 50 ? '●' : sov > 0 ? '△' : '✕';
+    return { bg, label, p: sov, unknown: false };
   };
 
   return (
@@ -309,10 +355,11 @@ function PromptOverviewTable({ data }: { data: V3AnalysisResult }) {
           </thead>
           <tbody className="divide-y divide-black/[0.05]">
             {data.promptResults.map((r, i) => {
-              const gpt = cell(pct(r.chatgpt.mentioned, r.chatgpt.total));
-              const gem = cell(pct(r.gemini.mentioned, r.gemini.total));
-              const avg = Math.round((gpt.p + gem.p) / 2);
-              const avgCell = cell(avg);
+              const gpt = cell(r.chatgpt.sov, r.chatgpt.answered);
+              const gem = cell(r.gemini.sov, r.gemini.answered);
+              const live = [gpt, gem].filter(c => !c.unknown);
+              const avg = live.length > 0 ? Math.round(live.reduce((s, c) => s + c.p, 0) / live.length) : 0;
+              const avgCell = cell(avg, live.length);
               return (
                 <tr key={r.prompt.id} className="hover:bg-black/[0.02] transition">
                   <td className="py-3 pr-4 text-black/40 text-xs">{i + 1}</td>
@@ -331,17 +378,17 @@ function PromptOverviewTable({ data }: { data: V3AnalysisResult }) {
                   </td>
                   <td className="py-3 px-3 text-center">
                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold ${gpt.bg}`}>
-                      {gpt.label} {gpt.p}%
+                      {gpt.label} {gpt.unknown ? '응답없음' : `${gpt.p}%`}
                     </span>
                   </td>
                   <td className="py-3 px-3 text-center">
                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold ${gem.bg}`}>
-                      {gem.label} {gem.p}%
+                      {gem.label} {gem.unknown ? '응답없음' : `${gem.p}%`}
                     </span>
                   </td>
                   <td className="py-3 pl-3 text-center">
-                    <span className={`text-xs font-extrabold ${avgCell.p >= 50 ? 'text-[#006241]' : avgCell.p > 0 ? 'text-amber-700' : 'text-[#c82014]'}`}>
-                      {avg}%
+                    <span className={`text-xs font-extrabold ${avgCell.unknown ? 'text-amber-700' : avgCell.p >= 50 ? 'text-[#006241]' : avgCell.p > 0 ? 'text-amber-700' : 'text-[#c82014]'}`}>
+                      {avgCell.unknown ? '—' : `${avg}%`}
                     </span>
                   </td>
                 </tr>
@@ -350,10 +397,11 @@ function PromptOverviewTable({ data }: { data: V3AnalysisResult }) {
           </tbody>
         </table>
       </div>
-      <div className="flex items-center gap-4 pt-2 text-xs text-black/40">
+      <div className="flex items-center gap-4 pt-2 text-xs text-black/40 flex-wrap">
         <span className="flex items-center gap-1"><span className="text-[#006241]">●</span> 50% 이상</span>
         <span className="flex items-center gap-1"><span className="text-amber-700">△</span> 1~49%</span>
-        <span className="flex items-center gap-1"><span className="text-[#c82014]">✕</span> 0%</span>
+        <span className="flex items-center gap-1"><span className="text-[#c82014]">✕</span> 노출 안 됨</span>
+        <span className="flex items-center gap-1"><span className="text-amber-800">⚠</span> 응답 실패 (집계 제외)</span>
       </div>
     </div>
   );
@@ -371,8 +419,10 @@ function PromptDetailTable({ data }: { data: V3AnalysisResult }) {
     >
       <h3 className="font-bold text-[#1E3932]" style={{ letterSpacing: '-0.16px' }}>프롬프트별 상세 결과</h3>
       {data.promptResults.map(r => {
-        const gptPct = r.chatgpt.total > 0 ? Math.round((r.chatgpt.mentioned / r.chatgpt.total) * 100) : 0;
-        const gemPct = r.gemini.total > 0 ? Math.round((r.gemini.mentioned / r.gemini.total) * 100) : 0;
+        const gptPct = r.chatgpt.sov;
+        const gemPct = r.gemini.sov;
+        const positions = [...r.chatgpt.positions, ...r.gemini.positions].filter((p): p is number => p !== null);
+        const bestPos = positions.length > 0 ? Math.min(...positions) : null;
         const isOpen = expanded === r.prompt.id;
 
         return (
@@ -385,11 +435,16 @@ function PromptDetailTable({ data }: { data: V3AnalysisResult }) {
                 <p className="text-sm text-black/75 truncate">{(r.prompt.displayText ?? r.prompt.text).slice(0, 60)}…</p>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
+                {bestPos !== null && (
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                    <Target className="w-3 h-3" /> 최고 {bestPos}위
+                  </span>
+                )}
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${gptPct > 0 ? 'bg-[#d4e9e2] text-[#006241]' : 'bg-[#edebe9] text-black/40'}`}>
-                  GPT {gptPct}%
+                  GPT {r.chatgpt.answered === 0 ? '응답없음' : `${gptPct}%`}
                 </span>
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${gemPct > 0 ? 'bg-[#edebe9] text-black/75' : 'bg-[#edebe9] text-black/40'}`}>
-                  GEM {gemPct}%
+                  GEM {r.gemini.answered === 0 ? '응답없음' : `${gemPct}%`}
                 </span>
                 {isOpen ? <ChevronUp className="w-4 h-4 text-black/40" /> : <ChevronDown className="w-4 h-4 text-black/40" />}
               </div>
@@ -397,14 +452,29 @@ function PromptDetailTable({ data }: { data: V3AnalysisResult }) {
             {isOpen && (
               <div className="px-4 pb-4 grid md:grid-cols-2 gap-3 bg-[#f2f0eb]">
                 {[
-                  { label: 'ChatGPT', texts: r.chatgpt.responseTexts, color: 'border-[#00754A]/20' },
-                  { label: 'Gemini', texts: r.gemini.responseTexts, color: 'border-[#1E3932]/20' },
+                  { label: 'ChatGPT', texts: r.chatgpt.responseTexts, positions: r.chatgpt.positions, oks: r.chatgpt.oks, color: 'border-[#00754A]/20' },
+                  { label: 'Gemini', texts: r.gemini.responseTexts, positions: r.gemini.positions, oks: r.gemini.oks, color: 'border-[#1E3932]/20' },
                 ].map(e => (
                   <div key={e.label} className={`border ${e.color} rounded-[12px] p-3 space-y-2 bg-white`}>
                     <p className="text-xs font-bold text-black/[0.55]">{e.label} 응답 ({e.texts.length}회)</p>
                     <div className="space-y-1">
+                      {e.texts.length === 0 && (
+                        <p className="text-xs text-black/40 italic">저장된 응답 원문이 없습니다.</p>
+                      )}
                       {e.texts.map((t, i) => (
-                        <p key={i} className="text-xs text-black/[0.55] bg-[#f2f0eb] rounded-lg p-2 leading-relaxed">{t}</p>
+                        <p
+                          key={i}
+                          className={`text-xs rounded-lg p-2 leading-relaxed ${
+                            e.oks[i] === false
+                              ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                              : 'text-black/[0.55] bg-[#f2f0eb]'
+                          }`}
+                        >
+                          {e.positions[i] != null && (
+                            <span className="font-bold text-amber-700 mr-1">[{e.positions[i]}위]</span>
+                          )}
+                          {t}
+                        </p>
                       ))}
                     </div>
                   </div>
@@ -514,12 +584,42 @@ function analyzeWeakPrompt(
   };
 }
 
+/** 순위 기반 취약 키워드 — 미노출이거나 4위 밖인 키워드와 그 자리를 차지한 치과 */
+function WeakKeywordSection({ data }: { data: V3AnalysisResult }) {
+  if (data.weakKeywords.length === 0) return null;
+  return (
+    <div className="space-y-2 border border-amber-200 bg-amber-50/60 rounded-[12px] p-4">
+      <div className="flex items-center gap-2">
+        <Target className="w-4 h-4 text-amber-700" />
+        <p className="text-sm font-bold text-amber-900">
+          우선 공략 키워드 {data.weakKeywords.length}개 — 미노출이거나 4위 밖
+        </p>
+      </div>
+      {data.weakKeywords.map((w, i) => (
+        <div key={i} className="bg-white border border-amber-200 rounded-[8px] p-3 space-y-1">
+          <p className="text-sm text-black/87">{w.keyword}</p>
+          <p className="text-xs text-black/[0.55]">
+            {w.reason === 'absent'
+              ? 'AI 추천 목록에 아예 없음'
+              : `현재 최고 ${w.bestPosition}위 — 상위 노출 실패`}
+            {w.topCompetitors.length > 0 && (
+              <> · 이 자리를 차지한 곳: <span className="font-semibold text-amber-800">{w.topCompetitors.join(', ')}</span></>
+            )}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AnalysisReport({ data }: { data: V3AnalysisResult }) {
   const [openId, setOpenId] = useState<string | null>(null);
 
+  // 응답을 받은 엔진만 평균에 넣는다 (응답 실패를 0%로 세면 허위 취약 판정)
   const weakPrompts = data.promptResults.filter(r => {
-    const avg = ((r.chatgpt.mentioned / (r.chatgpt.total || 1)) + (r.gemini.mentioned / (r.gemini.total || 1))) / 2 * 100;
-    return avg < 60;
+    const live = [r.chatgpt, r.gemini].filter(e => e.answered > 0);
+    if (live.length === 0) return false;
+    return live.reduce((s, e) => s + e.sov, 0) / live.length < 60;
   });
 
   const categoryWeakScore: Record<PromptCategory, { total: number; weak: number }> = {
@@ -529,9 +629,11 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
     '추천형': { total: 0, weak: 0 },
   };
   data.promptResults.forEach(r => {
+    const live = [r.chatgpt, r.gemini].filter(e => e.answered > 0);
+    if (live.length === 0) return;
     const cat = r.prompt.category;
     categoryWeakScore[cat].total++;
-    const avg = ((r.chatgpt.mentioned / (r.chatgpt.total || 1)) + (r.gemini.mentioned / (r.gemini.total || 1))) / 2 * 100;
+    const avg = live.reduce((s, e) => s + e.sov, 0) / live.length;
     if (avg < 60) categoryWeakScore[cat].weak++;
   });
 
@@ -546,6 +648,8 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
         <span className="text-xs text-black/40 ml-auto">미노출 역분석 + 블로그 제안</span>
       </div>
 
+      <WeakKeywordSection data={data} />
+
       {weakPrompts.length === 0 ? (
         <div className="text-center py-6 text-[#006241] font-semibold text-sm">
           모든 프롬프트에서 60% 이상 노출 — 우수한 AI 가시성입니다.
@@ -557,8 +661,8 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
           </p>
 
           {weakPrompts.map(r => {
-            const gptPct = r.chatgpt.total > 0 ? Math.round((r.chatgpt.mentioned / r.chatgpt.total) * 100) : 0;
-            const gemPct = r.gemini.total > 0 ? Math.round((r.gemini.mentioned / r.gemini.total) * 100) : 0;
+            const gptPct = r.chatgpt.sov;
+            const gemPct = r.gemini.sov;
             const isOpen = openId === r.prompt.id;
             const analysis = analyzeWeakPrompt(
               r.prompt.displayText ?? r.prompt.text,
@@ -575,7 +679,7 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm text-black/87 leading-relaxed flex-1">
-                      "{r.prompt.displayText ?? r.prompt.text}"
+                      &ldquo;{r.prompt.displayText ?? r.prompt.text}&rdquo;
                     </p>
                     {isOpen ? <ChevronUp className="w-4 h-4 text-black/40 flex-shrink-0 mt-0.5" /> : <ChevronDown className="w-4 h-4 text-black/40 flex-shrink-0 mt-0.5" />}
                   </div>
@@ -607,7 +711,7 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
                           <div className="flex items-start gap-2">
                             <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#d4e9e2] text-[#006241] text-xs font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
                             <div className="flex-1 space-y-1">
-                              <p className="text-sm font-semibold text-black/87 leading-snug">"{b.title}"</p>
+                              <p className="text-sm font-semibold text-black/87 leading-snug">&ldquo;{b.title}&rdquo;</p>
                               <div className="flex items-center gap-2">
                                 <span className="text-xs bg-[#edebe9] text-black/[0.65] px-2 py-0.5 rounded-full">{b.platform}</span>
                               </div>
@@ -721,8 +825,9 @@ export default function V3Dashboard({ data, history }: V3DashboardProps) {
 
       {/* Capture area */}
       <div ref={printRef} className="space-y-6 bg-[#f2f0eb] p-2 rounded-[12px]">
+        <FailureBanner data={data} />
         <GaugeSection data={data} />
-        <SummaryCards data={data} />
+        <SummaryCards data={data} history={history} />
         <SovBarChart data={data} />
         <PromptOverviewTable data={data} />
         <HistoryLineChart history={history} current={data} />

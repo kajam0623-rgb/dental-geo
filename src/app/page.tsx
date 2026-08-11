@@ -8,11 +8,14 @@ import PromptSelector from '@/components/PromptSelector';
 import V3Dashboard from '@/components/V3Dashboard';
 import ClinicList from '@/components/ClinicList';
 import { generatePromptsV3 } from '@/utils/promptGenerator';
-import { loadHistory, saveHistory } from '@/utils/historyStorage';
-import { getClinics, saveClinicScan, savedScanToResult } from '@/utils/clinicStorage';
+import {
+  getClinics, saveClinicScan, savedScanToResult, getScanTexts, historyFromClinic,
+} from '@/utils/clinicStorage';
 import type { V3SearchInput, ScanSettings, PromptItem, V3AnalysisResult, HistoryRecord, ClinicRecord, SavedScan } from '@/types/v3';
 
 type Step = 'home' | 'input' | 'prompts' | 'loading' | 'results';
+
+interface Progress { done: number; total: number }
 
 export default function Home() {
   const [step, setStep] = useState<Step>('home');
@@ -21,34 +24,34 @@ export default function Home() {
   const [result, setResult] = useState<V3AnalysisResult | null>(null);
   const [history, setHistory] = useState<HistoryRecord[]>([]);
   const [loadingMsg, setLoadingMsg] = useState('AI 엔진 분석 중...');
+  const [progress, setProgress] = useState<Progress | null>(null);
+  const [elapsed, setElapsed] = useState(0);
   const [clinics, setClinics] = useState<ClinicRecord[]>([]);
   const [isFromSaved, setIsFromSaved] = useState(false);
   const [scanSaved, setScanSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [storageError, setStorageError] = useState<string | null>(null);
 
   useEffect(() => {
-    getClinics().then(setClinics);
+    getClinics().then(r => { setClinics(r.clinics); setStorageError(r.error ?? null); });
   }, []);
 
+  // 스캔 경과 시간
   useEffect(() => {
-    if (result) {
-      const h = loadHistory(result.input.clinicFullName);
-      setHistory(h);
-      saveHistory({
-        scanDate: result.scanDate,
-        clinicFullName: result.input.clinicFullName,
-        clinicShortName: result.input.clinicShortName,
-        chatgptSov: result.summary.chatgpt.sov,
-        geminiSov: result.summary.gemini.sov,
-        overallSov: result.summary.overall.sov,
-      });
-    }
-  }, [result]);
+    if (step !== 'loading') return;
+    const t = setInterval(() => setElapsed(e => e + 1), 1000);
+    return () => clearInterval(t);
+  }, [step]);
 
-  const refreshClinics = () => { getClinics().then(setClinics); };
+  const refreshClinics = () => {
+    getClinics().then(r => { setClinics(r.clinics); setStorageError(r.error ?? null); });
+  };
 
   const handleInputNext = async (input: V3SearchInput) => {
     setSearchInput(input);
     setLoadingMsg('AI 프롬프트 생성 중...');
+    setProgress(null);
+    setElapsed(0);
     setStep('loading');
 
     try {
@@ -79,20 +82,11 @@ export default function Home() {
     if (!inputToUse) return;
     setIsFromSaved(false);
     setScanSaved(false);
+    setSaveError(null);
+    setLoadingMsg('AI 엔진 분석 중...');
+    setProgress({ done: 0, total: selected.length });
+    setElapsed(0);
     setStep('loading');
-
-    const msgs = [
-      'AI 엔진 분석 중...',
-      `ChatGPT에 ${settings.chatgptCount}회 쿼리 중...`,
-      `Gemini에 ${settings.geminiCount}회 쿼리 중...`,
-      '경쟁사 데이터 집계 중...',
-      '보고서 생성 중...',
-    ];
-    let mi = 0;
-    const interval = setInterval(() => {
-      mi = (mi + 1) % msgs.length;
-      setLoadingMsg(msgs[mi]);
-    }, 4000);
 
     try {
       const res = await fetch('/api/analyze-v3', {
@@ -100,21 +94,57 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input: inputToUse, selectedPrompts: selected, settings }),
       });
-      const json = await res.json();
-      if (json.success) {
-        setResult(json.data);
+
+      if (!res.ok || !res.body) {
+        const json = await res.json().catch(() => ({}));
+        alert('분석 중 오류가 발생했습니다: ' + (json.error ?? res.status));
+        setStep('prompts');
+        return;
+      }
+
+      // SSE 스트림 수신 — 프롬프트 완료마다 진행률이 온다
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let scanResult: V3AnalysisResult | null = null;
+      let streamError: string | null = null;
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const chunks = buffer.split('\n\n');
+        buffer = chunks.pop() ?? '';
+        for (const chunk of chunks) {
+          const line = chunk.trim();
+          if (!line.startsWith('data:')) continue;
+          const evt = JSON.parse(line.slice(5).trim());
+          if (evt.type === 'progress') setProgress({ done: evt.done, total: evt.total });
+          else if (evt.type === 'done') scanResult = evt.data;
+          else if (evt.type === 'error') streamError = evt.error;
+        }
+      }
+
+      if (scanResult) {
+        setResult(scanResult);
+        setHistory(historyForClinic(clinics, scanResult.input.clinicFullName));
         setStep('results');
       } else {
-        alert('분석 중 오류가 발생했습니다: ' + (json.error ?? ''));
+        alert('분석 중 오류가 발생했습니다: ' + (streamError ?? '알 수 없는 오류'));
         setStep('prompts');
       }
     } catch (e) {
       console.error(e);
       alert('서버와 통신할 수 없습니다.');
       setStep('prompts');
-    } finally {
-      clearInterval(interval);
     }
+  };
+
+  /** 추이는 저장된 스캔에서 파생한다 (localStorage 누적 안 함) */
+  const historyForClinic = (list: ClinicRecord[], fullName: string): HistoryRecord[] => {
+    const clinic = list.find(c => c.clinicFullName === fullName);
+    return clinic ? historyFromClinic(clinic) : [];
   };
 
   const handleScanStart = (selected: PromptItem[], settings: ScanSettings) => {
@@ -132,27 +162,27 @@ export default function Home() {
     setStep('prompts');
   };
 
-  const handleViewScan = (scan: SavedScan, clinic: ClinicRecord) => {
-    setResult(savedScanToResult(scan));
-    const h: HistoryRecord[] = [...clinic.scans].reverse().slice(-30).map(s => ({
-      scanDate: s.scanDate,
-      clinicFullName: s.input.clinicFullName,
-      clinicShortName: s.input.clinicShortName,
-      chatgptSov: s.summary.chatgpt.sov,
-      geminiSov: s.summary.gemini.sov,
-      overallSov: s.summary.overall.sov,
-    }));
-    setHistory(h);
+  const handleViewScan = async (scan: SavedScan, clinic: ClinicRecord) => {
+    // 응답 원문은 별도 키에 있으므로 열 때 불러온다
+    const texts = await getScanTexts(scan.id);
+    setResult(savedScanToResult(scan, texts));
+    setHistory(historyFromClinic(clinic));
     setIsFromSaved(true);
     setScanSaved(false);
+    setSaveError(null);
     setStep('results');
   };
 
   const handleSave = async () => {
     if (!result) return;
-    await saveClinicScan(result);
-    setScanSaved(true);
-    refreshClinics();
+    setSaveError(null);
+    const res = await saveClinicScan(result);
+    if (res.ok) {
+      setScanSaved(true);
+      refreshClinics();
+    } else {
+      setSaveError(res.error ?? '저장에 실패했습니다.');
+    }
   };
 
   const reset = () => {
@@ -162,6 +192,7 @@ export default function Home() {
     setResult(null);
     setIsFromSaved(false);
     setScanSaved(false);
+    setSaveError(null);
     refreshClinics();
   };
 
@@ -225,7 +256,13 @@ export default function Home() {
 
           {/* Home */}
           {step === 'home' && (
-            <motion.div key="home" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full">
+            <motion.div key="home" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full space-y-4">
+              {storageError && (
+                <div className="flex items-start gap-3 p-4 rounded-[12px] border border-amber-300 bg-amber-50 text-amber-900 text-sm">
+                  <span className="font-bold shrink-0">저장소 연결 실패</span>
+                  <span className="text-amber-900/80">{storageError} 저장된 스캔을 불러오거나 새로 저장할 수 없습니다.</span>
+                </div>
+              )}
               <ClinicList
                 clinics={clinics}
                 onNewAnalysis={() => setStep('input')}
@@ -268,7 +305,7 @@ export default function Home() {
 
           {/* Loading */}
           {step === 'loading' && (
-            <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center justify-center py-32 space-y-6">
+            <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center justify-center py-32 space-y-6 w-full">
               <div className="relative w-24 h-24">
                 <div className="absolute inset-0 border-4 border-[#d4e9e2] rounded-full" />
                 <div className="absolute inset-0 border-4 border-[#00754A] border-t-transparent rounded-full animate-spin" />
@@ -276,12 +313,27 @@ export default function Home() {
                   <SearchIcon className="w-8 h-8 text-[#006241]" />
                 </div>
               </div>
-              <div className="text-center">
+              <div className="text-center w-full max-w-md space-y-3">
                 <p className="text-[#006241] font-bold text-xl">{loadingMsg}</p>
-                <p className="text-black/[0.55] text-sm mt-2 max-w-sm">
+
+                {progress && progress.total > 0 && (
+                  <>
+                    <div className="h-2 bg-[#e8e8e8] rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[#00754A] rounded-full transition-all duration-500"
+                        style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-sm font-semibold text-black/75">
+                      {progress.done} / {progress.total} 프롬프트 완료 · 경과 {elapsed}초
+                    </p>
+                  </>
+                )}
+
+                <p className="text-black/[0.55] text-sm">
                   {loadingMsg === 'AI 프롬프트 생성 중...'
                     ? '병원 정보 기반으로 최적의 롱테일 프롬프트를 생성하고 있습니다.'
-                    : 'ChatGPT와 Gemini에 반복 질의 중입니다. 설정된 횟수에 따라 수 분이 소요될 수 있습니다.'}
+                    : 'ChatGPT와 Gemini에 반복 질의 중입니다.'}
                 </p>
               </div>
             </motion.div>
@@ -291,6 +343,9 @@ export default function Home() {
           {step === 'results' && result && (
             <motion.div key="results" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
               <V3Dashboard data={result} history={history} />
+              {saveError && (
+                <p className="mt-4 text-center text-sm text-[#c82014] font-semibold">{saveError}</p>
+              )}
               <div className="mt-8 flex justify-center gap-4 flex-wrap">
                 {!isFromSaved && (
                   <button

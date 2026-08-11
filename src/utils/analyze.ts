@@ -1,89 +1,98 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
-import { generatePrompts } from './promptGenerator';
-import type { AnalysisResult, KeywordDetail, DeepScanResult, DeepScanAttempt } from './analyzeMock';
-import type { V3SearchInput, ScanSettings, V3AnalysisResult, PromptScanResult, CompetitorRank, PromptItem } from '@/types/v3';
+import type {
+  V3SearchInput, ScanSettings, V3AnalysisResult, PromptScanResult, PromptItem, EngineSummary,
+} from '@/types/v3';
+import type { CompetitorRank, KeywordDetail, WeakKeyword } from '@/types/ranking';
+import { isMentioned, findPosition, rankCompetitors, averagePosition, findWeakKeywords } from './ranking';
 
+// 모델 ID — 2026-08-11 기준 실제 API 조회로 확인한 현행 모델.
+// 모델이 은퇴하면 스캔 전체가 실패하므로, SOV가 0%로 나오면 여기부터 확인할 것.
+const GEMINI_MODEL = 'gemini-3.5-flash';
+const OPENAI_MODEL = 'gpt-5.4-mini';
+
+const TIMEOUT_MS = 30000;
+
+// 동시 실행 폭. 프롬프트 단위 × 엔진별 요청 단위로 겹쳐서 엔진당 최대 30개가 동시에 나간다.
+// 2026-08-11 실측(Gemini 30콜): 3×5 = 23초 / 6×5 = 16초, 양쪽 다 실패 0건.
+// 더 올리면 rate limit 위험이 커지므로 여기서 멈춘다.
+const PROMPT_CONCURRENCY = 6;
+const QUERY_CONCURRENCY = 5;
+
+/**
+ * ok=false면 응답을 얻지 못한 것(오류/타임아웃/빈 응답)이다.
+ * '노출 안 됨'과 반드시 구분해서 SOV 분모에서 제외한다.
+ * 합치면 API 장애 시 "이 치과는 AI에 안 뜬다"는 정반대 결론의 허위 리포트가 나간다.
+ */
 interface QueryResult {
   mentioned: boolean;
   responseText: string;
-}
-
-function normalizeText(text: string): string {
-  return text.replace(/[^가-힣a-zA-Z0-9]/g, '').toLowerCase();
-}
-
-function isMentioned(text: string, clinicName: string): boolean {
-  const normalizedText = normalizeText(text);
-  const normalizedName = normalizeText(clinicName);
-  if (!normalizedName) return false;
-  return normalizedText.includes(normalizedName);
+  ok: boolean;
+  position: number | null;
 }
 
 function isMentionedAny(text: string, names: string[]): boolean {
   return names.some(n => isMentioned(text, n));
 }
 
-function extractCompetitors(text: string): string[] {
-  const found = new Set<string>();
-  const CLINIC_RE = /치과|의원|병원|클리닉|덴탈/;
-
-  // 1. Bold markdown: **병원명**
-  for (const m of text.matchAll(/\*\*([^*]{2,20})\*\*/g)) {
-    const name = m[1].trim();
-    if (CLINIC_RE.test(name)) found.add(name.replace(/\s+/g, ''));
-  }
-
-  // 2. 붙여쓴 병원명: 강남스마일치과, ABC덴탈 등
-  for (const m of text.matchAll(/[가-힣a-zA-Z0-9]{2,12}(?:치과|의원|병원|클리닉|덴탈센터|덴탈)/g)) {
-    const name = m[0];
-    if (name.length >= 4 && name.length <= 20) found.add(name);
-  }
-
-  // 3. 목록형 항목: "1. 강남스마일치과", "- 연세치과" 등
-  for (const line of text.split('\n')) {
-    const listMatch = line.match(/^\s*(?:\d+[.)]\s*|[-•*]\s*)(.{3,40})/);
-    if (!listMatch) continue;
-    for (const m of listMatch[1].matchAll(/[가-힣a-zA-Z0-9\s]{2,15}(?:치과|의원|병원|클리닉|덴탈)/g)) {
-      const name = m[0].replace(/\s+/g, '');
-      if (name.length >= 4 && name.length <= 20) found.add(name);
-    }
-  }
-
-  return [...found].filter(n => n.length >= 3 && n.length <= 20);
+/** 등록된 이름 여러 개 중 가장 앞선 순위를 취한다 */
+function findPositionAny(text: string, names: string[]): number | null {
+  const found = names.map(n => findPosition(text, n)).filter((p): p is number => p !== null);
+  return found.length > 0 ? Math.min(...found) : null;
 }
 
-async function queryGemini(prompt: string, clinicName: string): Promise<QueryResult> {
-  if (!process.env.GEMINI_API_KEY) return { mentioned: false, responseText: '[API 키 없음]' };
+function evaluate(text: string, names: string[]): { mentioned: boolean; position: number | null } {
+  return { mentioned: isMentionedAny(text, names), position: findPositionAny(text, names) };
+}
+
+async function queryGemini(prompt: string, names: string[]): Promise<QueryResult> {
+  if (!process.env.GEMINI_API_KEY) {
+    return { mentioned: false, responseText: '[API 키 없음]', ok: false, position: null };
+  }
   try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      // @ts-ignore
-      tools: [{ googleSearch: {} }],
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const result = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+      config: { tools: [{ googleSearch: {} }] },
     });
-    const result = await model.generateContent(prompt);
-    const text = result.response.text() || '';
-    return { mentioned: isMentioned(text, clinicName), responseText: text.trim() };
+    const text = (result.text || '').trim();
+    if (!text) return { mentioned: false, responseText: '[빈 응답]', ok: false, position: null };
+    return { ...evaluate(text, names), responseText: text, ok: true };
   } catch (error) {
-    return { mentioned: false, responseText: `[오류] ${error instanceof Error ? error.message : String(error)}` };
+    console.error('Gemini error:', error);
+    return {
+      mentioned: false,
+      responseText: `[오류] ${error instanceof Error ? error.message : String(error)}`,
+      ok: false,
+      position: null,
+    };
   }
 }
 
-async function queryChatGPT(prompt: string, clinicName: string): Promise<QueryResult> {
-  if (!process.env.OPENAI_API_KEY) return { mentioned: false, responseText: '[API 키 없음]' };
+async function queryChatGPT(prompt: string, names: string[]): Promise<QueryResult> {
+  if (!process.env.OPENAI_API_KEY) {
+    return { mentioned: false, responseText: '[API 키 없음]', ok: false, position: null };
+  }
   try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    // maxRetries 0 — 크레딧 소진·쿼터 오류(4xx)에 SDK 기본 2회 재시도로 시간을 버리지 않는다
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0 });
     const response = await openai.responses.create({
-      model: 'gpt-4o',
-      tools: [{ type: 'web_search_preview' as const }],
-      tool_choice: 'required',
+      model: OPENAI_MODEL,
       input: prompt,
+      tools: [{ type: 'web_search' }],
     });
-    const text = response.output_text || '';
-    return { mentioned: isMentioned(text, clinicName), responseText: text.trim() };
+    const text = (response.output_text || '').trim();
+    if (!text) return { mentioned: false, responseText: '[빈 응답]', ok: false, position: null };
+    return { ...evaluate(text, names), responseText: text, ok: true };
   } catch (error) {
-    return { mentioned: false, responseText: `[오류] ${error instanceof Error ? error.message : String(error)}` };
+    console.error('ChatGPT error:', error);
+    return {
+      mentioned: false,
+      responseText: `[오류] ${error instanceof Error ? error.message : String(error)}`,
+      ok: false,
+      position: null,
+    };
   }
 }
 
@@ -94,10 +103,12 @@ const withTimeout = <T>(promise: Promise<T>, ms: number, fallback: T): Promise<T
            .catch(err => { clearTimeout(timer); console.error(err); resolve(fallback); });
   });
 
-const TIMEOUT_MS = 30000;
-const FALLBACK: QueryResult = { mentioned: false, responseText: '[타임아웃] 응답 시간이 초과되었습니다.' };
-
-// ─── V3 Analysis ───────────────────────────────────────────────
+const FALLBACK: QueryResult = {
+  mentioned: false,
+  responseText: '[타임아웃] 응답 시간이 초과되었습니다.',
+  ok: false,
+  position: null,
+};
 
 /** Run N concurrent queries with a concurrency cap */
 async function runBatch<T>(tasks: Array<() => Promise<T>>, concurrency = 5): Promise<T[]> {
@@ -109,189 +120,169 @@ async function runBatch<T>(tasks: Array<() => Promise<T>>, concurrency = 5): Pro
   return results;
 }
 
+/** 응답을 받은 건수만 분모로 삼는다 */
+function sov(mentions: number, answered: number): number {
+  return answered > 0 ? Number(((mentions / answered) * 100).toFixed(1)) : 0;
+}
+
+function summarize(results: QueryResult[]): EngineSummary {
+  const answered = results.filter(r => r.ok).length;
+  const mentions = results.filter(r => r.mentioned).length;
+  return {
+    total: results.length,
+    answered,
+    failed: results.length - answered,
+    mentions,
+    sov: sov(mentions, answered),
+  };
+}
+
+/**
+ * 취약 키워드 분석은 프롬프트당 엔진별 대표 응답 1건이 필요하다.
+ * 우리가 가장 잘 나온 응답(순위가 앞선 것)을 대표로 삼아 과소평가를 피한다.
+ */
+function pickRepresentative(results: QueryResult[]): QueryResult | null {
+  const ok = results.filter(r => r.ok);
+  if (ok.length === 0) return null;
+  const ranked = ok.filter(r => r.position !== null);
+  if (ranked.length > 0) {
+    return ranked.reduce((best, r) => (r.position! < best.position! ? r : best));
+  }
+  return ok[0];
+}
+
 export async function runAnalysisV3(
   input: V3SearchInput,
   selectedPrompts: PromptItem[],
   settings: ScanSettings,
+  onProgress?: (done: number, total: number) => void,
 ): Promise<V3AnalysisResult> {
-  const allNames = [input.clinicFullName, input.clinicShortName].filter(Boolean);
-  const competitorCountMap = new Map<string, number>();
-  const totalResponses = (settings.chatgptCount + settings.geminiCount) * selectedPrompts.length;
+  const names = [input.clinicFullName, input.clinicShortName].filter(Boolean);
+  let completed = 0;
 
-  // Process each prompt: run all its queries in parallel (capped at 5 concurrent)
   const processPrompt = async (promptItem: PromptItem): Promise<PromptScanResult> => {
     const gptTasks = Array.from({ length: settings.chatgptCount }, () =>
-      () => withTimeout(queryChatGPT(promptItem.text, input.clinicFullName), TIMEOUT_MS, FALLBACK)
-    );
+      () => withTimeout(queryChatGPT(promptItem.text, names), TIMEOUT_MS, FALLBACK));
     const gemTasks = Array.from({ length: settings.geminiCount }, () =>
-      () => withTimeout(queryGemini(promptItem.text, input.clinicFullName), TIMEOUT_MS, FALLBACK)
-    );
+      () => withTimeout(queryGemini(promptItem.text, names), TIMEOUT_MS, FALLBACK));
 
     const [gptResults, gemResults] = await Promise.all([
-      runBatch(gptTasks, 5),
-      runBatch(gemTasks, 5),
+      runBatch(gptTasks, QUERY_CONCURRENCY),
+      runBatch(gemTasks, QUERY_CONCURRENCY),
     ]);
 
-    let chatgptMentions = 0;
-    const chatgptTexts: string[] = [];
-    for (const r of gptResults) {
-      const targetHit = isMentionedAny(r.responseText, allNames);
-      if (targetHit) {
-        chatgptMentions++;
-        competitorCountMap.set(input.clinicFullName, (competitorCountMap.get(input.clinicFullName) ?? 0) + 1);
-      }
-      chatgptTexts.push(r.responseText);
-      extractCompetitors(r.responseText).forEach(c => {
-        if (!allNames.some(n => isMentioned(c, n)))
-          competitorCountMap.set(c, (competitorCountMap.get(c) ?? 0) + 1);
-      });
-    }
-
-    let geminiMentions = 0;
-    const geminiTexts: string[] = [];
-    for (const r of gemResults) {
-      const targetHit = isMentionedAny(r.responseText, allNames);
-      if (targetHit) {
-        geminiMentions++;
-        competitorCountMap.set(input.clinicFullName, (competitorCountMap.get(input.clinicFullName) ?? 0) + 1);
-      }
-      geminiTexts.push(r.responseText);
-      extractCompetitors(r.responseText).forEach(c => {
-        if (!allNames.some(n => isMentioned(c, n)))
-          competitorCountMap.set(c, (competitorCountMap.get(c) ?? 0) + 1);
-      });
-    }
+    completed++;
+    onProgress?.(completed, selectedPrompts.length);
 
     return {
       prompt: promptItem,
-      chatgpt: { mentioned: chatgptMentions, total: settings.chatgptCount, responseTexts: chatgptTexts },
-      gemini: { mentioned: geminiMentions, total: settings.geminiCount, responseTexts: geminiTexts },
+      chatgpt: {
+        ...summarize(gptResults),
+        responseTexts: gptResults.map(r => r.responseText),
+        positions: gptResults.map(r => r.position),
+        oks: gptResults.map(r => r.ok),
+      },
+      gemini: {
+        ...summarize(gemResults),
+        responseTexts: gemResults.map(r => r.responseText),
+        positions: gemResults.map(r => r.position),
+        oks: gemResults.map(r => r.ok),
+      },
     };
   };
 
-  // Run up to 3 prompts concurrently
-  const promptResults = await runBatch(
-    selectedPrompts.map(p => () => processPrompt(p)),
-    3
-  );
+  const promptResults = await runBatch(selectedPrompts.map(p => () => processPrompt(p)), PROMPT_CONCURRENCY);
 
-  // Summary
-  const chatgptTotal = settings.chatgptCount * selectedPrompts.length;
-  const geminiTotal = settings.geminiCount * selectedPrompts.length;
-  const chatgptMentionsTotal = promptResults.reduce((s, p) => s + p.chatgpt.mentioned, 0);
-  const geminiMentionsTotal = promptResults.reduce((s, p) => s + p.gemini.mentioned, 0);
+  // ── 집계 ──────────────────────────────────────────────────────
+  const sum = (get: (p: PromptScanResult) => number) => promptResults.reduce((s, p) => s + get(p), 0);
 
-  const agreementCount = promptResults.filter(p => {
-    const gptHit = p.chatgpt.mentioned > p.chatgpt.total / 2;
-    const gemHit = p.gemini.mentioned > p.gemini.total / 2;
-    return gptHit === gemHit;
-  }).length;
+  const chatgpt: EngineSummary = {
+    total: sum(p => p.chatgpt.total),
+    answered: sum(p => p.chatgpt.answered),
+    failed: sum(p => p.chatgpt.failed),
+    mentions: sum(p => p.chatgpt.mentions),
+    sov: sov(sum(p => p.chatgpt.mentions), sum(p => p.chatgpt.answered)),
+  };
+  const gemini: EngineSummary = {
+    total: sum(p => p.gemini.total),
+    answered: sum(p => p.gemini.answered),
+    failed: sum(p => p.gemini.failed),
+    mentions: sum(p => p.gemini.mentions),
+    sov: sov(sum(p => p.gemini.mentions), sum(p => p.gemini.answered)),
+  };
 
-  // Competitor rankings — target clinic included, marked with isTarget
-  const competitorRankings: CompetitorRank[] = Array.from(competitorCountMap.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 15)
-    .map(([name, count]) => ({
-      name,
-      count,
-      percentage: Number(((count / totalResponses) * 100).toFixed(1)),
-      isTarget: name === input.clinicFullName,
-    }));
+  // 동시 노출률: 양쪽 엔진 모두에서 노출된 프롬프트 비율.
+  // 기존 '일치율'은 양쪽 다 미노출도 일치로 세어, 0%인데 100%로 보이는 역설이 있었다.
+  const bothVisible = promptResults.filter(p => p.chatgpt.mentions > 0 && p.gemini.mentions > 0).length;
+  const comparable = promptResults.filter(p => p.chatgpt.answered > 0 && p.gemini.answered > 0).length;
+
+  // 경쟁사 랭킹 — 응답을 받은 원문만, canonicalKey로 표기 통일해서 집계
+  const okTexts = promptResults.flatMap(p => [
+    ...p.chatgpt.responseTexts.filter((_, i) => p.chatgpt.oks[i]),
+    ...p.gemini.responseTexts.filter((_, i) => p.gemini.oks[i]),
+  ]);
+
+  const totalAnswered = chatgpt.answered + gemini.answered;
+  const competitors = rankCompetitors(okTexts, input.clinicFullName, totalAnswered);
+
+  // 우리 병원을 같은 척도로 랭킹에 합류시킨다
+  const ourPositions = promptResults.flatMap(p => [...p.chatgpt.positions, ...p.gemini.positions]);
+  const ourMentions = chatgpt.mentions + gemini.mentions;
+  const ourEntry: CompetitorRank = {
+    name: input.clinicFullName,
+    mentions: ourMentions,
+    exposureRate: sov(ourMentions, totalAnswered),
+    avgPosition: averagePosition(ourPositions) ?? 0,
+    isTarget: true,
+  };
+  const competitorRankings = [...competitors, ...(ourMentions > 0 ? [ourEntry] : [])]
+    .sort((a, b) => b.mentions - a.mentions || a.avgPosition - b.avgPosition)
+    .slice(0, 15);
+
+  // 취약 키워드 — 프롬프트별 대표 응답으로 판정
+  const details: KeywordDetail[] = promptResults.map(p => {
+    const gptRep = pickRepresentative(
+      p.chatgpt.responseTexts.map((t, i) => ({
+        mentioned: p.chatgpt.positions[i] !== null,
+        responseText: t,
+        ok: p.chatgpt.oks[i],
+        position: p.chatgpt.positions[i],
+      })));
+    const gemRep = pickRepresentative(
+      p.gemini.responseTexts.map((t, i) => ({
+        mentioned: p.gemini.positions[i] !== null,
+        responseText: t,
+        ok: p.gemini.oks[i],
+        position: p.gemini.positions[i],
+      })));
+    return {
+      keyword: p.prompt.displayText || p.prompt.text,
+      chatgptResponseText: gptRep?.responseText ?? '',
+      geminiResponseText: gemRep?.responseText ?? '',
+      chatgptOk: gptRep !== null,
+      geminiOk: gemRep !== null,
+      chatgptPosition: gptRep?.position ?? null,
+      geminiPosition: gemRep?.position ?? null,
+    };
+  });
+  const weakKeywords: WeakKeyword[] = findWeakKeywords(details, input.clinicFullName);
 
   return {
     input,
     settings,
     scanDate: new Date().toISOString(),
+    schemaVersion: 2,
     promptResults,
     summary: {
-      chatgpt: {
-        sov: chatgptTotal > 0 ? Number(((chatgptMentionsTotal / chatgptTotal) * 100).toFixed(1)) : 0,
-        mentions: chatgptMentionsTotal,
-        total: chatgptTotal,
-      },
-      gemini: {
-        sov: geminiTotal > 0 ? Number(((geminiMentionsTotal / geminiTotal) * 100).toFixed(1)) : 0,
-        mentions: geminiMentionsTotal,
-        total: geminiTotal,
-      },
-      overall: {
-        sov: (chatgptTotal + geminiTotal) > 0
-          ? Number((((chatgptMentionsTotal + geminiMentionsTotal) / (chatgptTotal + geminiTotal)) * 100).toFixed(1))
-          : 0,
-      },
-      agreementRate: selectedPrompts.length > 0
-        ? Number(((agreementCount / selectedPrompts.length) * 100).toFixed(1))
-        : 0,
+      chatgpt,
+      gemini,
+      overall: { sov: sov(ourMentions, totalAnswered) },
+      totalAnswered,
+      totalFailed: chatgpt.failed + gemini.failed,
+      bothVisibleRate: comparable > 0 ? Number(((bothVisible / comparable) * 100).toFixed(1)) : 0,
+      avgPosition: averagePosition(ourPositions),
     },
     competitorRankings,
-  };
-}
-
-// ─── Legacy V1 Analysis (kept for backward compatibility) ───────
-
-export async function runAnalysis(data: { clinicName: string; region: string; treatment: string }): Promise<AnalysisResult> {
-  const prompts = generatePrompts(data.region, data.treatment);
-  const keywordDetails: KeywordDetail[] = [];
-  let gptMentions = 0;
-  let geminiMentions = 0;
-
-  for (let i = 0; i < prompts.length; i++) {
-    if (i > 0) await new Promise(r => setTimeout(r, 2000));
-    const [geminiResult, gptResult] = await Promise.all([
-      withTimeout(queryGemini(prompts[i], data.clinicName), TIMEOUT_MS, FALLBACK),
-      withTimeout(queryChatGPT(prompts[i], data.clinicName), TIMEOUT_MS, FALLBACK),
-    ]);
-    if (geminiResult.mentioned) geminiMentions++;
-    if (gptResult.mentioned) gptMentions++;
-    keywordDetails.push({
-      keyword: prompts[i],
-      chatgptMentioned: gptResult.mentioned,
-      geminiMentioned: geminiResult.mentioned,
-      chatgptResponseText: gptResult.responseText,
-      geminiResponseText: geminiResult.responseText,
-    });
-  }
-
-  const totalSearches = prompts.length * 2;
-  const totalMentions = gptMentions + geminiMentions;
-  return {
-    totalSearches,
-    clinicMentions: totalMentions,
-    sovPercentage: totalSearches > 0 ? Number(((totalMentions / totalSearches) * 100).toFixed(1)) : 0,
-    details: {
-      chatgpt: { searches: prompts.length, mentions: gptMentions, sov: prompts.length > 0 ? Number(((gptMentions / prompts.length) * 100).toFixed(1)) : 0 },
-      gemini: { searches: prompts.length, mentions: geminiMentions, sov: prompts.length > 0 ? Number(((geminiMentions / prompts.length) * 100).toFixed(1)) : 0 },
-    },
-    keywordDetails,
-  };
-}
-
-// ─── Legacy Deep Scan ───────────────────────────────────────────
-
-export async function runDeepAnalysis(data: {
-  clinicName: string; region: string; treatment: string; prompt: string; repeatCount: number;
-}): Promise<DeepScanResult> {
-  const attempts: DeepScanAttempt[] = [];
-  let chatgptMentions = 0;
-  let geminiMentions = 0;
-
-  for (let i = 0; i < data.repeatCount; i++) {
-    if (i > 0) await new Promise(r => setTimeout(r, 2000));
-    const [geminiResult, gptResult] = await Promise.all([
-      withTimeout(queryGemini(data.prompt, data.clinicName), TIMEOUT_MS, FALLBACK),
-      withTimeout(queryChatGPT(data.prompt, data.clinicName), TIMEOUT_MS, FALLBACK),
-    ]);
-    if (geminiResult.mentioned) geminiMentions++;
-    if (gptResult.mentioned) chatgptMentions++;
-    attempts.push({ attemptNumber: i + 1, chatgptMentioned: gptResult.mentioned, geminiMentioned: geminiResult.mentioned, chatgptResponseText: gptResult.responseText, geminiResponseText: geminiResult.responseText });
-  }
-
-  return {
-    prompt: data.prompt,
-    totalAttempts: data.repeatCount,
-    chatgpt: { mentions: chatgptMentions, consistency: Number(((chatgptMentions / data.repeatCount) * 100).toFixed(1)) },
-    gemini: { mentions: geminiMentions, consistency: Number(((geminiMentions / data.repeatCount) * 100).toFixed(1)) },
-    overallConsistency: Number((((chatgptMentions + geminiMentions) / (data.repeatCount * 2)) * 100).toFixed(1)),
-    attempts,
+    weakKeywords,
   };
 }
