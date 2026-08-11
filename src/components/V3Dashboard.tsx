@@ -28,25 +28,39 @@ function sovTextColor(sov: number) {
   return sov >= 60 ? 'text-[#006241]' : sov >= 30 ? 'text-amber-700' : 'text-[#c82014]';
 }
 
-function SovBadge({ value }: { value: number }) {
+function SovBadge({ value, measurable = true }: { value: number; measurable?: boolean }) {
+  if (!measurable) return <span className="text-2xl font-extrabold text-black/35">측정 불가</span>;
   return <span className={`text-2xl font-extrabold ${sovTextColor(value)}`}>{value}%</span>;
 }
 
 // ─── SOV Donut Gauge ────────────────────────────────────────────
 
-function SovGauge({ value, label, color }: { value: number; label: string; color: string }) {
+/**
+ * 응답을 한 건도 못 받았으면 0%가 아니라 '측정 불가'다.
+ * 큰 빨간 0%는 "이 치과는 AI에 안 뜬다"로 읽혀서, 배너로 설명해도 오해가 남는다.
+ */
+function SovGauge({ value, label, color, measurable = true }: { value: number; label: string; color: string; measurable?: boolean }) {
   const r = 52;
   const circ = 2 * Math.PI * r;
-  const filled = Math.min(value / 100, 1) * circ;
+  const filled = measurable ? Math.min(value / 100, 1) * circ : 0;
   return (
     <div className="flex flex-col items-center gap-1">
       <svg width="130" height="130" viewBox="0 0 130 130">
         <circle cx="65" cy="65" r={r} fill="none" stroke="#e8e8e8" strokeWidth="13" />
-        <circle cx="65" cy="65" r={r} fill="none" stroke={color} strokeWidth="13"
+        <circle cx="65" cy="65" r={r} fill="none" stroke={measurable ? color : '#d6d3d1'} strokeWidth="13"
           strokeDasharray={`${filled} ${circ}`} strokeLinecap="round"
           transform="rotate(-90 65 65)" style={{ transition: 'stroke-dasharray 0.8s ease' }} />
-        <text x="65" y="60" textAnchor="middle" fill="rgba(0,0,0,0.87)" fontSize="22" fontWeight="800">{value}%</text>
-        <text x="65" y="78" textAnchor="middle" fill="rgba(0,0,0,0.55)" fontSize="10">SOV</text>
+        {measurable ? (
+          <>
+            <text x="65" y="60" textAnchor="middle" fill="rgba(0,0,0,0.87)" fontSize="22" fontWeight="800">{value}%</text>
+            <text x="65" y="78" textAnchor="middle" fill="rgba(0,0,0,0.55)" fontSize="10">SOV</text>
+          </>
+        ) : (
+          <>
+            <text x="65" y="62" textAnchor="middle" fill="rgba(0,0,0,0.45)" fontSize="15" fontWeight="700">측정 불가</text>
+            <text x="65" y="80" textAnchor="middle" fill="rgba(0,0,0,0.4)" fontSize="9">응답 없음</text>
+          </>
+        )}
       </svg>
       <p className="text-xs font-semibold text-black/[0.55]">{label}</p>
     </div>
@@ -63,10 +77,13 @@ function GaugeSection({ data }: { data: V3AnalysisResult }) {
       style={{ boxShadow: '0 0 0.5px rgba(0,0,0,0.14), 0 1px 1px rgba(0,0,0,0.24)' }}
     >
       <div className="flex flex-col sm:flex-row items-center justify-around gap-6">
-        <SovGauge value={data.summary.overall.sov} label="종합" color={overallColor} />
+        <SovGauge value={data.summary.overall.sov} label="종합" color={overallColor}
+          measurable={data.summary.totalAnswered > 0} />
         <div className="hidden sm:block w-px h-28 bg-black/10" />
-        <SovGauge value={data.summary.chatgpt.sov} label="ChatGPT" color={gptColor} />
-        <SovGauge value={data.summary.gemini.sov} label="Gemini" color={gemColor} />
+        <SovGauge value={data.summary.chatgpt.sov} label="ChatGPT" color={gptColor}
+          measurable={data.summary.chatgpt.answered > 0} />
+        <SovGauge value={data.summary.gemini.sov} label="Gemini" color={gemColor}
+          measurable={data.summary.gemini.answered > 0} />
         <div className="hidden sm:block w-px h-28 bg-black/10" />
         <div className="text-center space-y-1">
           <p className="text-xs text-black/40">스캔 일시</p>
@@ -125,10 +142,11 @@ function SummaryCards({ data, history }: { data: V3AnalysisResult; history: Hist
           value: summary.overall.sov,
           sub: `응답 ${summary.totalAnswered}회 기준`,
           delta: prev !== null ? summary.overall.sov - prev : null,
+          measurable: summary.totalAnswered > 0,
         },
-        { label: 'ChatGPT SOV', value: summary.chatgpt.sov, sub: `${summary.chatgpt.mentions} / 응답 ${summary.chatgpt.answered}회` },
-        { label: 'Gemini SOV', value: summary.gemini.sov, sub: `${summary.gemini.mentions} / 응답 ${summary.gemini.answered}회` },
-        { label: '동시 노출률', value: summary.bothVisibleRate, sub: '양쪽 엔진 모두 노출' },
+        { label: 'ChatGPT SOV', value: summary.chatgpt.sov, sub: `${summary.chatgpt.mentions} / 응답 ${summary.chatgpt.answered}회`, measurable: summary.chatgpt.answered > 0 },
+        { label: 'Gemini SOV', value: summary.gemini.sov, sub: `${summary.gemini.mentions} / 응답 ${summary.gemini.answered}회`, measurable: summary.gemini.answered > 0 },
+        { label: '동시 노출률', value: summary.bothVisibleRate, sub: '양쪽 엔진 모두 노출', measurable: summary.chatgpt.answered > 0 && summary.gemini.answered > 0 },
       ].map(c => (
         <div
           key={c.label}
@@ -136,7 +154,7 @@ function SummaryCards({ data, history }: { data: V3AnalysisResult; history: Hist
           style={{ boxShadow: '0 0 0.5px rgba(0,0,0,0.14), 0 1px 1px rgba(0,0,0,0.24)' }}
         >
           <p className="text-xs text-black/[0.55] font-medium">{c.label}</p>
-          <SovBadge value={c.value} />
+          <SovBadge value={c.value} measurable={c.measurable !== false} />
           <p className="text-xs text-black/40">{c.sub}</p>
           {c.delta != null && <DeltaBadge delta={c.delta} />}
         </div>
@@ -792,7 +810,7 @@ export default function V3Dashboard({ data, history }: V3DashboardProps) {
         pixelRatio: 2,
       });
       const link = document.createElement('a');
-      link.download = `GEO리포트_${data.input.clinicFullName}_${new Date(data.scanDate).toLocaleDateString('ko-KR')}.png`;
+      link.download = `GEO리포트_${data.input.clinicFullName}_${data.scanDate.slice(0, 10)}.png`;
       link.href = dataUrl;
       document.body.appendChild(link);
       link.click();

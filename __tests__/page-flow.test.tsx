@@ -157,5 +157,12 @@ describe('전체 화면 흐름', () => {
 
     // 응답 실패 표시
     expect(text).toContain('응답 실패 (집계 제외)');
+
+    // 응답 0회인 엔진은 0%가 아니라 '측정 불가'로 표시한다.
+    // 큰 빨간 0%는 "AI에 안 뜬다"로 읽혀 배너로 설명해도 오해가 남는다.
+    expect(text).toContain('측정 불가');
+    expect(text).toContain('응답 없음');
+    // Gemini는 응답이 있으므로 수치가 그대로 보여야 한다
+    expect(text).toContain('100%');
   }, 30000);
 });
