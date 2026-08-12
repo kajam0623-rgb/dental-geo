@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Building2, Clock, Trash2, Plus, ChevronRight, TrendingUp, ChevronLeft, RotateCcw, ListFilter } from 'lucide-react';
+import { Building2, Clock, Trash2, Plus, ChevronRight, TrendingUp, ChevronLeft, RotateCcw, ListFilter, Download } from 'lucide-react';
 import type { ClinicRecord, SavedScan } from '@/types/v3';
 import { deleteClinic, deleteScan } from '@/utils/clinicStorage';
 
@@ -129,12 +129,24 @@ export default function ClinicList({ clinics, onNewAnalysis, onViewScan, onResca
           <h2 className="text-2xl font-bold text-[#1E3932]" style={{ letterSpacing: '-0.16px' }}>저장된 치과</h2>
           <p className="text-sm text-black/[0.55] mt-1">{clinics.length}개 치과 · 데이터 보관 중</p>
         </div>
-        <button
-          onClick={onNewAnalysis}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-[50px] bg-[#00754A] text-white font-bold text-sm hover:shadow-[0_4px_12px_rgba(0,117,74,0.25)] active:scale-95 transition-all"
-        >
-          <Plus className="w-4 h-4" /> 새 분석 시작
-        </button>
+        <div className="flex items-center gap-2">
+          {clinics.length > 0 && (
+            <a
+              href="/api/storage/export"
+              download
+              className="flex items-center gap-2 px-4 py-2.5 rounded-[50px] border border-black/20 text-black/[0.65] font-semibold text-sm hover:text-[#006241] hover:border-[#006241]/40 active:scale-95 transition-all"
+              title="저장된 전체 데이터를 JSON 파일로 내려받습니다 (응답 원문 포함)"
+            >
+              <Download className="w-4 h-4" /> 백업 내보내기
+            </a>
+          )}
+          <button
+            onClick={onNewAnalysis}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-[50px] bg-[#00754A] text-white font-bold text-sm hover:shadow-[0_4px_12px_rgba(0,117,74,0.25)] active:scale-95 transition-all"
+          >
+            <Plus className="w-4 h-4" /> 새 분석 시작
+          </button>
+        </div>
       </div>
 
       {clinics.length === 0 ? (
