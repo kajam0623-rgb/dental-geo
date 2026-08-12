@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line,
 } from 'recharts';
-import { Trophy, TrendingUp, FileText, ChevronDown, ChevronUp, Download, AlertTriangle, Target } from 'lucide-react';
+import { Trophy, TrendingUp, FileText, ChevronDown, ChevronUp, Download, AlertTriangle, Target, Link as LinkIcon, Search as SearchIcon } from 'lucide-react';
 import type { V3AnalysisResult, HistoryRecord, PromptCategory } from '@/types/v3';
 
 // ─── Helpers ────────────────────────────────────────────────────
@@ -336,6 +336,91 @@ function CompetitorRanking({ data }: { data: V3AnalysisResult }) {
               </div>
             </div>
           </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── AI 인용 출처 ───────────────────────────────────────────────
+
+/**
+ * AI가 답을 만들 때 실제로 읽은 사이트들.
+ * "우리를 왜 안 불러주나"의 답이 여기 있다 — 저 사이트에 우리가 없기 때문이다.
+ */
+function CitationSources({ data }: { data: V3AnalysisResult }) {
+  if (!data.citations || data.citations.length === 0) return null;
+  const max = data.citations[0].count;
+
+  return (
+    <div
+      className="bg-white rounded-[12px] p-6 space-y-4"
+      style={{ boxShadow: '0 0 0.5px rgba(0,0,0,0.14), 0 1px 1px rgba(0,0,0,0.24)' }}
+    >
+      <div className="flex items-center gap-2 flex-wrap">
+        <LinkIcon className="w-5 h-5 text-[#006241]" />
+        <h3 className="font-bold text-[#1E3932]" style={{ letterSpacing: '-0.16px' }}>AI가 참고한 출처</h3>
+        <span className="text-xs text-black/40 ml-auto">이 사이트들을 읽고 답을 만든다</span>
+      </div>
+
+      <p className="text-sm text-black/[0.65] bg-[#f2f0eb] rounded-[8px] p-3 leading-relaxed">
+        AI는 아래 사이트를 근거로 치과를 추천한다. <span className="font-bold text-[#006241]">여기에 우리 병원 정보가 없으면
+        아무리 홈페이지를 고쳐도 추천되지 않는다.</span> 상위 출처부터 등록·리뷰·콘텐츠를 확보하는 것이 가장 빠른 길이다.
+      </p>
+
+      <div className="space-y-2">
+        {data.citations.map((c, i) => (
+          <div key={c.domain} className="flex items-center gap-3">
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+              i === 0 ? 'bg-[#d4e9e2] text-[#006241]' : 'bg-[#f2f0eb] text-black/40'
+            }`}>{i + 1}</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <a
+                  href={`https://${c.domain}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-medium text-black/87 hover:text-[#006241] hover:underline truncate"
+                >
+                  {c.domain}
+                </a>
+                <span className="text-xs font-bold text-black/[0.55] flex-shrink-0">
+                  {c.count}회 <span className="font-medium text-black/40">· 응답의 {c.rate}%</span>
+                </span>
+              </div>
+              <div className="h-1.5 bg-[#e8e8e8] rounded-full overflow-hidden">
+                <div className="h-full rounded-full bg-[#00754A]" style={{ width: `${Math.round((c.count / max) * 100)}%` }} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** 우리 프롬프트를 받은 AI가 실제로 구글에 던진 검색어 */
+function AiSearchQueries({ data }: { data: V3AnalysisResult }) {
+  if (!data.searchQueries || data.searchQueries.length === 0) return null;
+  return (
+    <div
+      className="bg-white rounded-[12px] p-6 space-y-3"
+      style={{ boxShadow: '0 0 0.5px rgba(0,0,0,0.14), 0 1px 1px rgba(0,0,0,0.24)' }}
+    >
+      <div className="flex items-center gap-2 flex-wrap">
+        <SearchIcon className="w-5 h-5 text-[#006241]" />
+        <h3 className="font-bold text-[#1E3932]" style={{ letterSpacing: '-0.16px' }}>AI가 실제로 검색한 키워드</h3>
+        <span className="text-xs text-black/40 ml-auto">{data.searchQueries.length}개</span>
+      </div>
+      <p className="text-sm text-black/[0.65] bg-[#f2f0eb] rounded-[8px] p-3 leading-relaxed">
+        환자가 물으면 AI는 이 검색어로 웹을 뒤진다. <span className="font-bold text-[#006241]">블로그·플레이스 제목을 이 문구에 맞추면
+        AI 눈에 먼저 띈다.</span>
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {data.searchQueries.map((q, i) => (
+          <span key={i} className="text-xs px-3 py-1.5 rounded-full bg-[#edebe9] text-black/75 border border-black/[0.06]">
+            {q}
+          </span>
         ))}
       </div>
     </div>
@@ -850,6 +935,8 @@ export default function V3Dashboard({ data, history }: V3DashboardProps) {
         <PromptOverviewTable data={data} />
         <HistoryLineChart history={history} current={data} />
         <CompetitorRanking data={data} />
+        <CitationSources data={data} />
+        <AiSearchQueries data={data} />
         <PromptDetailTable data={data} />
         <AnalysisReport data={data} />
       </div>

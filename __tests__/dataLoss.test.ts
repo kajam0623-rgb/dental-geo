@@ -42,6 +42,8 @@ function res(name: string, scanDate: string): V3AnalysisResult {
       overall: { sov: 50 }, totalAnswered: 6, totalFailed: 0, bothVisibleRate: 100, avgPosition: 1.3,
     },
     competitorRankings: [], weakKeywords: [],
+    citations: [],
+    searchQueries: [],
   };
 }
 const post = (r: V3AnalysisResult) => POST(new Request('http://x/', { method: 'POST', body: JSON.stringify(r) }));

@@ -28,6 +28,8 @@ function makeResult(name: string, scanDate = '2026-08-11T00:00:00.000Z'): V3Anal
     },
     competitorRankings: [{ name: '똑똑플란트치과의원', mentions: 1, exposureRate: 33.3, avgPosition: 2 }],
     weakKeywords: [],
+    citations: [],
+    searchQueries: [],
   };
 }
 

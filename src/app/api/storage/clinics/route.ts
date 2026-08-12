@@ -114,6 +114,8 @@ export async function POST(request: Request) {
       summary: result.summary,
       competitorRankings: result.competitorRankings,
       weakKeywords: result.weakKeywords,
+      citations: result.citations ?? [],
+      searchQueries: result.searchQueries ?? [],
     };
 
     const key = clinicKey(name);

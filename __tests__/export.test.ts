@@ -43,6 +43,8 @@ function res(name: string, scanDate: string): V3AnalysisResult {
     },
     competitorRankings: [{ name: '서울맥치과의원', mentions: 1, exposureRate: 33.3, avgPosition: 2 }],
     weakKeywords: [],
+    citations: [],
+    searchQueries: [],
   };
 }
 const save = (r: V3AnalysisResult) => POST(new Request('http://x/', { method: 'POST', body: JSON.stringify(r) }));

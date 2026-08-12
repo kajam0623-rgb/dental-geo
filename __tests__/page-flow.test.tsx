@@ -38,6 +38,8 @@ const RESULT: V3AnalysisResult = {
   weakKeywords: [
     { keyword: '강남역 임플란트 가격', reason: 'absent', bestPosition: null, topCompetitors: ['똑똑플란트치과의원'] },
   ],
+  citations: [{ domain: 'goodoc.co.kr', count: 3, rate: 100 }],
+  searchQueries: ['가양역 임플란트 치과 추천'],
 };
 
 function sseStream(result: V3AnalysisResult): ReadableStream<Uint8Array> {

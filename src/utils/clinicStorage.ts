@@ -128,6 +128,8 @@ export function savedScanToResult(scan: SavedScan, texts: ScanTexts | null): V3A
     summary: scan.summary,
     competitorRankings: scan.competitorRankings,
     weakKeywords: scan.weakKeywords ?? [],
+    citations: scan.citations ?? [],
+    searchQueries: scan.searchQueries ?? [],
   };
 }
 

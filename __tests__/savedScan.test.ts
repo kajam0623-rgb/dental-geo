@@ -28,6 +28,8 @@ const scan: SavedScan = {
   summary,
   competitorRankings: [],
   weakKeywords: [],
+  citations: [],
+  searchQueries: [],
 };
 
 const texts: ScanTexts = {

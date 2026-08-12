@@ -41,6 +41,18 @@ export interface EngineScanResult extends EngineSummary {
   oks: boolean[];
 }
 
+/**
+ * AI가 답변을 만들 때 실제로 참고한 출처.
+ * "어디에 콘텐츠를 깔아야 AI가 우리를 말하는가"에 직접 답하는 지표다.
+ */
+export interface CitationSource {
+  domain: string;
+  /** 인용된 횟수 */
+  count: number;
+  /** 응답 대비 인용률 */
+  rate: number;
+}
+
 export interface PromptScanResult {
   prompt: PromptItem;
   chatgpt: EngineScanResult;
@@ -68,6 +80,10 @@ export interface V3AnalysisResult {
   summary: V3Summary;
   competitorRankings: CompetitorRank[];
   weakKeywords: WeakKeyword[];
+  /** AI가 참고한 출처 도메인 (많이 인용된 순) */
+  citations: CitationSource[];
+  /** 우리 프롬프트를 받은 AI가 실제로 돌린 검색어 */
+  searchQueries: string[];
 }
 
 /** KV에 보관하는 스캔 요약. 응답 원문은 geo:texts:<id>에 따로 저장한다. */
@@ -85,6 +101,8 @@ export interface SavedScan {
   summary: V3Summary;
   competitorRankings: CompetitorRank[];
   weakKeywords: WeakKeyword[];
+  citations: CitationSource[];
+  searchQueries: string[];
 }
 
 /** 프롬프트별·엔진별 응답 원문. 스캔 1건당 1레코드. */

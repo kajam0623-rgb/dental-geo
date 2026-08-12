@@ -29,6 +29,10 @@ interface QueryResult {
   responseText: string;
   ok: boolean;
   position: number | null;
+  /** AI가 참고한 출처 도메인 */
+  citedDomains: string[];
+  /** AI가 실제로 돌린 검색어 */
+  searchQueries: string[];
 }
 
 function isMentionedAny(text: string, names: string[]): boolean {
@@ -45,9 +49,22 @@ function evaluate(text: string, names: string[]): { mentioned: boolean; position
   return { mentioned: isMentionedAny(text, names), position: findPositionAny(text, names) };
 }
 
+/** groundingChunks의 title에 출처 도메인이 담겨 온다. punycode는 사람이 읽는 형태로 되돌린다. */
+function toDomain(raw: string | undefined): string | null {
+  const t = (raw ?? '').trim().toLowerCase();
+  if (!t || !t.includes('.')) return null;
+  if (!t.startsWith('xn--')) return t;
+  try {
+    return new URL(`https://${t}`).hostname;
+  } catch {
+    return t;
+  }
+}
+
 async function queryGemini(prompt: string, names: string[]): Promise<QueryResult> {
+  const empty = { citedDomains: [] as string[], searchQueries: [] as string[] };
   if (!process.env.GEMINI_API_KEY) {
-    return { mentioned: false, responseText: '[API 키 없음]', ok: false, position: null };
+    return { mentioned: false, responseText: '[API 키 없음]', ok: false, position: null, ...empty };
   }
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -57,8 +74,17 @@ async function queryGemini(prompt: string, names: string[]): Promise<QueryResult
       config: { tools: [{ googleSearch: {} }] },
     });
     const text = (result.text || '').trim();
-    if (!text) return { mentioned: false, responseText: '[빈 응답]', ok: false, position: null };
-    return { ...evaluate(text, names), responseText: text, ok: true };
+    if (!text) return { mentioned: false, responseText: '[빈 응답]', ok: false, position: null, ...empty };
+
+    const md = result.candidates?.[0]?.groundingMetadata;
+    const citedDomains = [...new Set(
+      (md?.groundingChunks ?? [])
+        .map(c => toDomain(c.web?.title))
+        .filter((d): d is string => d !== null),
+    )];
+    const searchQueries = md?.webSearchQueries ?? [];
+
+    return { ...evaluate(text, names), responseText: text, ok: true, citedDomains, searchQueries };
   } catch (error) {
     console.error('Gemini error:', error);
     return {
@@ -66,13 +92,16 @@ async function queryGemini(prompt: string, names: string[]): Promise<QueryResult
       responseText: `[오류] ${error instanceof Error ? error.message : String(error)}`,
       ok: false,
       position: null,
+      ...empty,
     };
   }
 }
 
 async function queryChatGPT(prompt: string, names: string[]): Promise<QueryResult> {
+  // 출처 수집은 Gemini만 지원한다 (OpenAI는 크레딧이 없어 검증하지 못했다)
+  const empty = { citedDomains: [] as string[], searchQueries: [] as string[] };
   if (!process.env.OPENAI_API_KEY) {
-    return { mentioned: false, responseText: '[API 키 없음]', ok: false, position: null };
+    return { mentioned: false, responseText: '[API 키 없음]', ok: false, position: null, ...empty };
   }
   try {
     // maxRetries 0 — 크레딧 소진·쿼터 오류(4xx)에 SDK 기본 2회 재시도로 시간을 버리지 않는다
@@ -83,8 +112,8 @@ async function queryChatGPT(prompt: string, names: string[]): Promise<QueryResul
       tools: [{ type: 'web_search' }],
     });
     const text = (response.output_text || '').trim();
-    if (!text) return { mentioned: false, responseText: '[빈 응답]', ok: false, position: null };
-    return { ...evaluate(text, names), responseText: text, ok: true };
+    if (!text) return { mentioned: false, responseText: '[빈 응답]', ok: false, position: null, ...empty };
+    return { ...evaluate(text, names), responseText: text, ok: true, ...empty };
   } catch (error) {
     console.error('ChatGPT error:', error);
     return {
@@ -92,6 +121,7 @@ async function queryChatGPT(prompt: string, names: string[]): Promise<QueryResul
       responseText: `[오류] ${error instanceof Error ? error.message : String(error)}`,
       ok: false,
       position: null,
+      ...empty,
     };
   }
 }
@@ -108,6 +138,8 @@ const FALLBACK: QueryResult = {
   responseText: '[타임아웃] 응답 시간이 초과되었습니다.',
   ok: false,
   position: null,
+  citedDomains: [],
+  searchQueries: [],
 };
 
 /** Run N concurrent queries with a concurrency cap */
@@ -160,6 +192,11 @@ export async function runAnalysisV3(
   const names = [input.clinicFullName, input.clinicShortName].filter(Boolean);
   let completed = 0;
 
+  // AI가 참고한 출처와 실제로 돌린 검색어를 스캔 전체에서 모은다
+  const domainCount = new Map<string, number>();
+  const queriesSeen = new Set<string>();
+  let citedResponses = 0;
+
   const processPrompt = async (promptItem: PromptItem): Promise<PromptScanResult> => {
     const gptTasks = Array.from({ length: settings.chatgptCount }, () =>
       () => withTimeout(queryChatGPT(promptItem.text, names), TIMEOUT_MS, FALLBACK));
@@ -170,6 +207,13 @@ export async function runAnalysisV3(
       runBatch(gptTasks, QUERY_CONCURRENCY),
       runBatch(gemTasks, QUERY_CONCURRENCY),
     ]);
+
+    for (const r of [...gptResults, ...gemResults]) {
+      if (!r.ok) continue;
+      if (r.citedDomains.length > 0) citedResponses++;
+      for (const d of r.citedDomains) domainCount.set(d, (domainCount.get(d) ?? 0) + 1);
+      for (const q of r.searchQueries) queriesSeen.add(q);
+    }
 
     completed++;
     onProgress?.(completed, selectedPrompts.length);
@@ -247,6 +291,8 @@ export async function runAnalysisV3(
         responseText: t,
         ok: p.chatgpt.oks[i],
         position: p.chatgpt.positions[i],
+        citedDomains: [],
+        searchQueries: [],
       })));
     const gemRep = pickRepresentative(
       p.gemini.responseTexts.map((t, i) => ({
@@ -254,6 +300,8 @@ export async function runAnalysisV3(
         responseText: t,
         ok: p.gemini.oks[i],
         position: p.gemini.positions[i],
+        citedDomains: [],
+        searchQueries: [],
       })));
     return {
       keyword: p.prompt.displayText || p.prompt.text,
@@ -284,5 +332,14 @@ export async function runAnalysisV3(
     },
     competitorRankings,
     weakKeywords,
+    citations: [...domainCount.entries()]
+      .map(([domain, count]) => ({
+        domain,
+        count,
+        rate: citedResponses > 0 ? Number(((count / citedResponses) * 100).toFixed(1)) : 0,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 20),
+    searchQueries: [...queriesSeen].slice(0, 40),
   };
 }

@@ -51,6 +51,8 @@ function makeResult(clinicFullName: string, scanDate = '2026-08-11T00:00:00.000Z
     },
     competitorRankings: [],
     weakKeywords: [],
+    citations: [],
+    searchQueries: [],
   };
 }
 
