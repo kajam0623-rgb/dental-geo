@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Building2, Clock, Trash2, Plus, ChevronRight, TrendingUp, ChevronLeft, RotateCcw, ListFilter, Download } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Building2, Clock, Trash2, Plus, ChevronRight, TrendingUp, ChevronLeft, RotateCcw, ListFilter, Download, Upload } from 'lucide-react';
 import type { ClinicRecord, SavedScan } from '@/types/v3';
-import { deleteClinic, deleteScan } from '@/utils/clinicStorage';
+import { deleteClinic, deleteScan, importBackup } from '@/utils/clinicStorage';
 
 function sovColor(sov: number) {
   return sov >= 60 ? 'text-[#006241]' : sov >= 30 ? 'text-amber-700' : 'text-[#c82014]';
@@ -25,6 +25,31 @@ interface Props {
 
 export default function ClinicList({ clinics, onNewAnalysis, onViewScan, onRescan, onNewPromptScan, onRefresh }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // 같은 파일을 다시 골라도 이벤트가 뜨도록
+    if (!file) return;
+
+    setImporting(true);
+    setImportMsg(null);
+    const r = await importBackup(file);
+    setImporting(false);
+
+    if (r.ok && r.summary) {
+      const { clinicsWritten, scansAdded, scansSkipped } = r.summary;
+      setImportMsg({
+        ok: true,
+        text: `복원 완료 — 치과 ${clinicsWritten}개, 스캔 ${scansAdded}건 추가${scansSkipped > 0 ? ` (중복 ${scansSkipped}건 건너뜀)` : ''}`,
+      });
+      onRefresh();
+    } else {
+      setImportMsg({ ok: false, text: r.error ?? '복원에 실패했습니다.' });
+    }
+  };
 
   const clinic = clinics.find(c => c.clinicFullName === selected);
 
@@ -128,8 +153,29 @@ export default function ClinicList({ clinics, onNewAnalysis, onViewScan, onResca
         <div>
           <h2 className="text-2xl font-bold text-[#1E3932]" style={{ letterSpacing: '-0.16px' }}>저장된 치과</h2>
           <p className="text-sm text-black/[0.55] mt-1">{clinics.length}개 치과 · 데이터 보관 중</p>
+          {importMsg && (
+            <p className={`text-sm mt-2 font-semibold ${importMsg.ok ? 'text-[#006241]' : 'text-[#c82014]'}`}>
+              {importMsg.text}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            onChange={handleImport}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={importing}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-[50px] border border-black/20 text-black/[0.65] font-semibold text-sm hover:text-[#006241] hover:border-[#006241]/40 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+            title="백업 JSON 파일에서 복원합니다. 이미 있는 스캔은 건너뜁니다."
+          >
+            <Upload className="w-4 h-4" /> {importing ? '복원 중...' : '백업 복원'}
+          </button>
           {clinics.length > 0 && (
             <a
               href="/api/storage/export"

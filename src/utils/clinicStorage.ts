@@ -41,6 +41,38 @@ export async function getClinics(): Promise<{ clinics: ClinicRecord[]; error?: s
   }
 }
 
+export interface ImportSummary {
+  clinicsWritten: number;
+  scansAdded: number;
+  scansSkipped: number;
+  textsWritten: number;
+}
+
+/** 백업 JSON 파일을 되돌려 넣는다. 같은 스캔 id는 건너뛰므로 여러 번 넣어도 안전하다. */
+export async function importBackup(file: File): Promise<{ ok: boolean; summary?: ImportSummary; error?: string }> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await file.text());
+  } catch {
+    return { ok: false, error: 'JSON 파일이 아니거나 손상되었습니다.' };
+  }
+
+  try {
+    const res = await api('/api/storage/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(parsed),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json.success) {
+      return { ok: false, error: json.error ?? '복원에 실패했습니다.' };
+    }
+    return { ok: true, summary: json as ImportSummary };
+  } catch {
+    return { ok: false, error: '서버와 통신할 수 없습니다.' };
+  }
+}
+
 /** 저장된 스캔의 응답 원문. 목록 조회를 가볍게 하려고 분리 저장돼 있다. */
 export async function getScanTexts(scanId: string): Promise<ScanTexts | null> {
   try {
