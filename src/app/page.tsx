@@ -31,6 +31,7 @@ export default function Home() {
   const [scanSaved, setScanSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [storageError, setStorageError] = useState<string | null>(null);
+  const [activeScans, setActiveScans] = useState<SavedScan[]>([]);
 
   useEffect(() => {
     getClinics().then(r => { setClinics(r.clinics); setStorageError(r.error ?? null); });
@@ -129,6 +130,7 @@ export default function Home() {
       if (scanResult) {
         setResult(scanResult);
         setHistory(historyForClinic(clinics, scanResult.input.clinicFullName));
+        setActiveScans(scansForClinic(clinics, scanResult.input.clinicFullName));
         setStep('results');
       } else {
         alert('분석 중 오류가 발생했습니다: ' + (streamError ?? '알 수 없는 오류'));
@@ -146,6 +148,9 @@ export default function Home() {
     const clinic = list.find(c => c.clinicFullName === fullName);
     return clinic ? historyFromClinic(clinic) : [];
   };
+
+  const scansForClinic = (list: ClinicRecord[], fullName: string): SavedScan[] =>
+    list.find(c => c.clinicFullName === fullName)?.scans ?? [];
 
   const handleScanStart = (selected: PromptItem[], settings: ScanSettings) => {
     runScan(selected, settings);
@@ -167,6 +172,7 @@ export default function Home() {
     const texts = await getScanTexts(scan.id);
     setResult(savedScanToResult(scan, texts));
     setHistory(historyFromClinic(clinic));
+    setActiveScans(clinic.scans);
     setIsFromSaved(true);
     setScanSaved(false);
     setSaveError(null);
@@ -342,7 +348,7 @@ export default function Home() {
           {/* Results */}
           {step === 'results' && result && (
             <motion.div key="results" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
-              <V3Dashboard data={result} history={history} />
+              <V3Dashboard data={result} history={history} savedScans={activeScans} />
               {saveError && (
                 <p className="mt-4 text-center text-sm text-[#c82014] font-semibold">{saveError}</p>
               )}

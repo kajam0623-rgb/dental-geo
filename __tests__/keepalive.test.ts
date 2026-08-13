@@ -65,11 +65,11 @@ describe('vercel.json cron 설정', () => {
   it('Hobby 플랜 제약(최대 2개·하루 1회 이하)을 지킨다', async () => {
     const fs = await import('node:fs');
     const cfg = JSON.parse(fs.readFileSync('vercel.json', 'utf8'));
-    expect(cfg.crons).toHaveLength(1);
     expect(cfg.crons.length).toBeLessThanOrEqual(2);
 
-    const { path, schedule } = cfg.crons[0];
-    expect(path).toBe('/api/keepalive');
+    const keepalive = cfg.crons.find((c: { path: string }) => c.path === '/api/keepalive');
+    expect(keepalive).toBeTruthy();
+    const { schedule } = keepalive;
 
     // 5필드 · 숫자만 (MON/JAN 같은 이름값은 Vercel이 거부한다)
     const fields = schedule.trim().split(/\s+/);

@@ -13,7 +13,8 @@ export function proxy(request: NextRequest) {
   if (
     pathname.startsWith('/login') ||
     pathname.startsWith('/api/auth') ||
-    pathname.startsWith('/api/keepalive')
+    pathname.startsWith('/api/keepalive') ||
+    pathname.startsWith('/api/cron/')
   ) {
     return NextResponse.next();
   }

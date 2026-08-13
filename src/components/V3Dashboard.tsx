@@ -6,7 +6,9 @@ import {
   LineChart, Line,
 } from 'recharts';
 import { Trophy, TrendingUp, FileText, ChevronDown, ChevronUp, Download, AlertTriangle, Target, Link as LinkIcon, Search as SearchIcon } from 'lucide-react';
-import type { V3AnalysisResult, HistoryRecord, PromptCategory } from '@/types/v3';
+import type { V3AnalysisResult, HistoryRecord, PromptCategory, SavedScan } from '@/types/v3';
+import MonthlyReport from './MonthlyReport';
+import { buildMonthlyReport } from '@/utils/monthlyReport';
 
 // ─── Helpers ────────────────────────────────────────────────────
 
@@ -879,9 +881,12 @@ function AnalysisReport({ data }: { data: V3AnalysisResult }) {
 interface V3DashboardProps {
   data: V3AnalysisResult;
   history: HistoryRecord[];
+  /** 이 치과의 저장된 스캔 전체. 월간 비교에 쓴다. */
+  savedScans?: SavedScan[];
 }
 
-export default function V3Dashboard({ data, history }: V3DashboardProps) {
+export default function V3Dashboard({ data, history, savedScans }: V3DashboardProps) {
+  const monthly = buildMonthlyReport(savedScans ?? []);
   const printRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
 
@@ -929,6 +934,7 @@ export default function V3Dashboard({ data, history }: V3DashboardProps) {
       {/* Capture area */}
       <div ref={printRef} className="space-y-6 bg-[#f2f0eb] p-2 rounded-[12px]">
         <FailureBanner data={data} />
+        {monthly && <MonthlyReport report={monthly} />}
         <GaugeSection data={data} />
         <SummaryCards data={data} history={history} />
         <SovBarChart data={data} />
